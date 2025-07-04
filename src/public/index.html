@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Test UI</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 20px;
+            background-color: #f5f5f5;
+        }
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .container {
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .status {
+            padding: 5px;
+            margin: 5px 0;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .connected { background-color: #d4edda; color: #155724; }
+        .disconnected { background-color: #f8d7da; color: #721c24; }
+        .message-box {
+            height: 150px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 5px;
+            margin: 5px 0;
+            border-radius: 4px;
+            background: #fafafa;
+        }
+        .controls {
+            margin: 10px 0;
+            display: flex;
+            gap: 5px;
+        }
+        button {
+            padding: 5px 10px;
+            border: none;
+            border-radius: 4px;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+        }
+        input[type="text"] {
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            flex-grow: 1;
+        }
+        .message {
+            margin: 3px 0;
+            padding: 3px;
+            border-radius: 4px;
+        }
+        .heartbeat {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .sent {
+            background-color: #e8f4ff;
+        }
+        .received {
+            background-color: #e8ffe8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>WebSocket Test UI</h1>
+        
+        <div class="controls">
+            <input type="text" id="connectionId" placeholder="Connection ID">
+            <button id="connectBtn">Connect</button>
+        </div>
+
+        <div id="totalConnections" class="status">Total Connected Sockets: 0</div>
+
+        <div id="connections" class="grid-container"></div>
+    </div>
+
+    <script>
+        const connectionsContainer = document.getElementById('connections');
+        const connectBtn = document.getElementById('connectBtn');
+        const connectionIdInput = document.getElementById('connectionId');
+        const totalConnections = document.getElementById('totalConnections');
+
+        let totalConnectedSockets = 0;
+
+        function updateTotalConnections() {
+            totalConnections.textContent = `Total Connected Sockets: ${totalConnectedSockets}`;
+        }
+
+        function createConnectionBox(connectionId) {
+            const container = document.createElement('div');
+            container.className = 'container';
+
+            const status = document.createElement('div');
+            status.className = 'status connecting';
+            status.textContent = 'Connecting...';
+
+            const messageBox = document.createElement('div');
+            messageBox.className = 'message-box';
+
+            const controls = document.createElement('div');
+            controls.className = 'controls';
+
+            const messageInput = document.createElement('input');
+            messageInput.type = 'text';
+            messageInput.placeholder = 'Type a message...';
+            messageInput.disabled = true;
+
+            const sendBtn = document.createElement('button');
+            sendBtn.textContent = 'Send';
+            sendBtn.disabled = true;
+
+            const disconnectBtn = document.createElement('button');
+            disconnectBtn.textContent = 'Disconnect';
+            disconnectBtn.disabled = true;
+
+            controls.appendChild(messageInput);
+            controls.appendChild(sendBtn);
+            controls.appendChild(disconnectBtn);
+
+            container.appendChild(status);
+            container.appendChild(messageBox);
+            container.appendChild(controls);
+
+            connectionsContainer.appendChild(container);
+
+            return { container, status, messageBox, messageInput, sendBtn, disconnectBtn };
+        }
+
+        function connect() {
+            const connectionId = connectionIdInput.value || crypto.randomUUID();
+            const { container, status, messageBox, messageInput, sendBtn, disconnectBtn } = createConnectionBox(connectionId);
+
+            let wsUrl = `ws://localhost:3001/ws/chat/${connectionId}`;
+            const ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                status.textContent = 'Connected Socket:' + connectionId;
+                status.className = 'status connected';
+                messageInput.disabled = false;
+                sendBtn.disabled = false;
+                disconnectBtn.disabled = false;
+
+                totalConnectedSockets++;
+                updateTotalConnections();
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                const msgDiv = document.createElement('div');
+                msgDiv.className = 'message received';
+                msgDiv.textContent = JSON.stringify(data);
+                messageBox.appendChild(msgDiv);
+                messageBox.scrollTop = messageBox.scrollHeight;
+            };
+
+            ws.onclose = () => {
+                status.textContent = 'Disconnected';
+                status.className = 'status disconnected';
+                messageInput.disabled = true;
+                sendBtn.disabled = true;
+                disconnectBtn.disabled = true;
+
+                totalConnectedSockets--;
+                updateTotalConnections();
+            };
+
+            ws.onerror = (error) => {
+                const msgDiv = document.createElement('div');
+                msgDiv.className = 'message error';
+                msgDiv.textContent = 'WebSocket error';
+                messageBox.appendChild(msgDiv);
+                console.error('WebSocket error:', error);
+            };
+
+            sendBtn.addEventListener('click', () => {
+                if (ws && messageInput.value) {
+                    ws.send(messageInput.value);
+                    const msgDiv = document.createElement('div');
+                    msgDiv.className = 'message sent';
+                    msgDiv.textContent = `Sent: ${messageInput.value}`;
+                    messageBox.appendChild(msgDiv);
+                    messageInput.value = '';
+                }
+            });
+
+            disconnectBtn.addEventListener('click', () => {
+                if (ws) {
+                    ws.close();
+                }
+            });
+
+            messageInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    sendBtn.click();
+                }
+            });
+        }        
+        connectBtn.addEventListener('click', () => {
+            [...Array(1e1)].forEach(() => {
+                connect();
+            });
+        });
+    </script>
+</body>
+</html> 
