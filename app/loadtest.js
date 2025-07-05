@@ -75,7 +75,8 @@ export default function () {
     const url = `ws://localhost/ws/chat/${connectionId}`;
     
     const startTime = new Date().getTime();
-    let msgCount = 0;
+    let sentMsgCount = 0;
+    let receivedMsgCount = 0;
     let isConnected = false;
     let lastMessageTime = startTime;
     let connectionEstablished = false;
@@ -104,9 +105,10 @@ export default function () {
             wsMessagesSent.add(1);
             
             // Send periodic messages
-            socket.setInterval(() => {
+            socket.setInterval(() => {                
                 if (socket.readyState === 1) { // 1 = OPEN state
-                    const message = `Message ${msgCount + 1} from VU ${__VU}: ${randomString(20)}`;
+                    sentMsgCount++;
+                    const message = `Message ${sentMsgCount} from VU ${__VU}: ${randomString(20)}`;
                     
                     lastMessageTime = new Date().getTime();
                     socket.send(message);
@@ -119,24 +121,36 @@ export default function () {
             const now = new Date().getTime();
             
             try {
-                // Server sends JSON with count field
+                // Server sends JSON with count field or heartbeat
                 const parsed = JSON.parse(data);
-                msgCount++;
-                wsMessagesReceived.add(1);
                 
-                // Calculate latency
-                const messageLatency = now - lastMessageTime;
-                messageLatencyTrend.add(messageLatency);
+                // Handle heartbeat messages (ignore them for counting)
+                if (parsed.type === 'heartbeat') {
+                    console.log(`[VU ${__VU}] Received heartbeat: ${parsed.timestamp}`);
+                    return; // Don't count heartbeats as regular messages
+                }
                 
-                console.log(`[VU ${__VU}] Message #${msgCount}: count=${parsed.count}`);
-                
-                // Validate message structure - server sends { count: number }
-                check(parsed, {
-                    'has count field': (obj) => obj.count !== undefined,
-                    'count is number': (obj) => typeof obj.count === 'number',
-                    'count is positive': (obj) => obj.count > 0,
-                    'message latency acceptable': () => messageLatency < 2000,
-                });
+                // Handle regular count messages
+                if (parsed.count !== undefined) {
+                    receivedMsgCount++;
+                    wsMessagesReceived.add(1);
+                    
+                    // Calculate latency
+                    const messageLatency = now - lastMessageTime;
+                    messageLatencyTrend.add(messageLatency);
+                    
+                    console.log(`[VU ${__VU}] Message #${receivedMsgCount}: count=${parsed.count}`);
+                    
+                    // Validate message structure - server sends { count: number }
+                    check(parsed, {
+                        'has count field': (obj) => obj.count !== undefined,
+                        'count is number': (obj) => typeof obj.count === 'number',
+                        'count is positive': (obj) => obj.count > 0,
+                        'message latency acceptable': () => messageLatency < 2000,
+                    });
+                } else {
+                    console.log(`[VU ${__VU}] Received unknown message type:`, parsed);
+                }
                 
             } catch (error) {
                 // Handle potential goodbye message or other non-JSON responses
@@ -163,7 +177,7 @@ export default function () {
             // Validate close codes
             check(null, {
                 'clean disconnect': () => code === 1000 || code === 1001,
-                'received messages': () => msgCount > 0,
+                'received messages': () => receivedMsgCount > 0,
             });
         });
 
@@ -209,10 +223,10 @@ export default function () {
     // Final validation
     check(null, {
         'connection was established': () => connectionEstablished,
-        'received messages': () => msgCount > 0,
-        'message rate acceptable': () => msgCount >= 3, // Lower expectation
-        'no excessive errors': () => wsErrors.count < msgCount * 0.1, // Less than 10% error rate
+        'received messages': () => receivedMsgCount > 0,
+        'message rate acceptable': () => receivedMsgCount >= 3, // Lower expectation
+        'no excessive errors': () => wsErrors.count < receivedMsgCount * 0.1, // Less than 10% error rate
     });
     
-    console.log(`[VU ${__VU}] Test completed - Messages sent: ${wsMessagesSent.count}, Messages received: ${msgCount}`);
+    console.log(`[VU ${__VU}] Test completed - Messages sent: ${sentMsgCount + 1}, Messages received: ${receivedMsgCount}`);
 } 

@@ -151,7 +151,7 @@ function gracefullyCloseConnection(ws: any, reason: string) {
 function startHeartbeat(ws: WebSocketContext) {
   const intervalId = setInterval(() => {
     try {
-      ws.send({ message: "Heartbeat " + new Date().toISOString() });
+      ws.send({ type: "heartbeat", timestamp: new Date().toISOString() });
     } catch (error) {
       // Connection might be closed
       clearInterval(intervalId);
