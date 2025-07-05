@@ -153,7 +153,7 @@
             const connectionId = connectionIdInput.value || crypto.randomUUID();
             const { container, status, messageBox, messageInput, sendBtn, disconnectBtn } = createConnectionBox(connectionId);
 
-            let wsUrl = `ws://localhost:3001/ws/chat/${connectionId}`;
+            let wsUrl = `ws://localhost/ws/chat/${connectionId}`;
             const ws = new WebSocket(wsUrl);
 
             ws.onopen = () => {
@@ -168,6 +168,7 @@
             };
 
             ws.onmessage = (event) => {
+                console.log('onmessage', event);
                 const data = JSON.parse(event.data);
                 const msgDiv = document.createElement('div');
                 msgDiv.className = 'message received';
@@ -176,10 +177,24 @@
                 messageBox.scrollTop = messageBox.scrollHeight;
             };
 
-            ws.onclose = () => {
+            ws.onclose = (event) => {
+                console.log('onclose', event);
+                
+                // Create close message with event details
+                const closeData = {
+                    code: event.code,
+                    reason: event.reason || 'No reason provided',
+                    wasClean: event.wasClean,
+                    timestamp: new Date().toISOString()
+                };
+                
+                const msgDiv = document.createElement('div');
                 status.textContent = 'Disconnected';
                 status.className = 'status disconnected';
+                msgDiv.className = 'message received';
+                msgDiv.textContent = `Connection closed: ${JSON.stringify(closeData)}`;
                 messageInput.disabled = true;
+                messageBox.appendChild(msgDiv);
                 sendBtn.disabled = true;
                 disconnectBtn.disabled = true;
 
@@ -208,7 +223,12 @@
 
             disconnectBtn.addEventListener('click', () => {
                 if (ws) {
-                    ws.close();
+                    // Send disconnect message first, then close after receiving response
+                    ws.send(JSON.stringify({ disconnect: true }));
+                    // Close after a short delay to allow server to send final message
+                    setTimeout(() => {
+                        ws.close();
+                    }, 200);
                 }
             });
 

@@ -1,0 +1,82 @@
+groups:
+  - name: websocket.rules
+    rules:
+      # Zero connections alert
+      - alert: WebSocketZeroConnections
+        expr: websocket_connections_total == 0
+        for: 60s
+        labels:
+          severity: warning
+        annotations:
+          summary: "WebSocket server has zero active connections"
+          description: "WebSocket server {{ $labels.instance }} has had zero active connections for more than 60 seconds"
+
+      # High connection count alert
+      - alert: WebSocketHighConnectionCount
+        expr: websocket_connections_total > 8000
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High WebSocket connection count"
+          description: "WebSocket server {{ $labels.instance }} has {{ $value }} connections (threshold: 8000)"
+
+      # Connection limit reached
+      - alert: WebSocketConnectionLimitReached
+        expr: websocket_connections_total >= 10000
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "WebSocket connection limit reached"
+          description: "WebSocket server {{ $labels.instance }} has reached the connection limit of {{ $value }}"
+
+      # High error rate
+      - alert: WebSocketHighErrorRate
+        expr: rate(websocket_errors_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High WebSocket error rate"
+          description: "WebSocket server {{ $labels.instance }} has error rate of {{ $value }} errors/sec"
+
+      # High message latency
+      - alert: WebSocketHighMessageLatency
+        expr: histogram_quantile(0.95, rate(websocket_message_latency_seconds_bucket[5m])) > 1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High WebSocket message latency"
+          description: "WebSocket server {{ $labels.instance }} has 95th percentile message latency of {{ $value }}s"
+
+      # Server down
+      - alert: WebSocketServerDown
+        expr: up{job=~"websocket-.*"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "WebSocket server is down"
+          description: "WebSocket server {{ $labels.instance }} is down"
+
+      # High memory usage
+      - alert: WebSocketHighMemoryUsage
+        expr: process_resident_memory_bytes{job=~"websocket-.*"} > 1073741824  # 1GB
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage"
+          description: "WebSocket server {{ $labels.instance }} is using {{ $value | humanize1024 }}B of memory"
+
+      # High CPU usage
+      - alert: WebSocketHighCPUUsage
+        expr: rate(process_cpu_seconds_total{job=~"websocket-.*"}[5m]) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage"
+          description: "WebSocket server {{ $labels.instance }} CPU usage is {{ $value | humanizePercentage }}" 
