@@ -34,6 +34,10 @@ jobs:
       run: |
         bun run lint || echo "No lint script configured"
         
+    - name: Run tests
+      working-directory: ./app
+      run: bun test
+      
     - name: Build application
       working-directory: ./app
       run: bun run build
@@ -100,10 +104,119 @@ jobs:
         path: websocket-server.tar.gz
         retention-days: 7
 
+  # Monitor and Test Job
+  monitor-test:
+    runs-on: ubuntu-latest
+    needs: [docker-build]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Build Docker image for monitoring
+      working-directory: .
+      run: |
+        docker build -f docker/app/Dockerfile -t websocket-server:test ./app
+        
+    - name: Start services for monitoring
+      run: |
+        # Start Redis (needed for full functionality)
+        docker run -d --name redis-test -p 6379:6379 redis:7-alpine
+        
+        # Start WebSocket server
+        docker run -d --name websocket-test -p 3001:3001 \
+          --link redis-test:redis \
+          -e REDIS_URL=redis://redis:6379 \
+          websocket-server:test
+        
+        # Wait for services to be ready
+        echo "Waiting for services to start..."
+        sleep 15
+        
+        # Verify services are running
+        docker ps
+        
+    - name: Wait for service readiness
+      run: |
+        echo "Waiting for WebSocket server to be ready..."
+        timeout 60 bash -c 'until curl -f http://localhost:3001/health; do sleep 2; done'
+        
+        echo "Testing endpoints..."
+        curl -f http://localhost:3001/healthz || echo "Liveness check failed"
+        curl -f http://localhost:3001/readyz || echo "Readiness check may fail initially"
+        curl -f http://localhost:3001/metrics | head -10 || echo "Metrics endpoint failed"
+        
+    - name: Run monitor script for 20 seconds
+      run: |
+        echo "Starting monitor script for 20 seconds..."
+        
+        # Make monitor script executable
+        chmod +x scripts/monitor.sh
+        
+        # Run monitor script in background and capture output
+        timeout 20s ./scripts/monitor.sh > monitor_output.log 2>&1 &
+        MONITOR_PID=$!
+        
+        # Wait for monitor to run for 20 seconds
+        sleep 20
+        
+        # Show monitor output
+        echo "=== Monitor Script Output ==="
+        cat monitor_output.log || echo "No monitor output available"
+        
+        # Generate some test traffic to have something to monitor
+        echo "=== Generating test traffic ==="
+        for i in {1..10}; do
+          curl -s http://localhost:3001/health > /dev/null || true
+          curl -s http://localhost:3001/metrics > /dev/null || true
+          sleep 1
+        done
+        
+    - name: Collect container logs
+      if: always()
+      run: |
+        echo "=== Collecting container logs ==="
+        mkdir -p logs
+        
+        # Get WebSocket server logs
+        docker logs websocket-test > logs/websocket-server.log 2>&1 || echo "Failed to get websocket logs"
+        
+        # Get Redis logs
+        docker logs redis-test > logs/redis.log 2>&1 || echo "Failed to get redis logs"
+        
+        # Get system info
+        docker ps > logs/containers.log 2>&1 || echo "Failed to get container info"
+        
+        # Copy monitor output
+        cp monitor_output.log logs/ || echo "No monitor output to copy"
+        
+        echo "=== Log files created ==="
+        ls -la logs/
+        
+    - name: Archive logs and artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: monitor-logs-and-artifacts
+        path: |
+          logs/
+          monitor_output.log
+        retention-days: 7
+        
+    - name: Cleanup containers
+      if: always()
+      run: |
+        echo "Cleaning up containers..."
+        docker stop websocket-test redis-test || true
+        docker rm websocket-test redis-test || true
+
   # Deploy Job (only on main branch)
   deploy:
     runs-on: ubuntu-latest
-    needs: [build-and-test, docker-build]
+    needs: [build-and-test, docker-build, monitor-test]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment: production
     
@@ -149,7 +262,7 @@ jobs:
   # Cleanup Job
   cleanup:
     runs-on: ubuntu-latest
-    needs: [deploy]
+    needs: [deploy, monitor-test]
     if: always()
     
     steps:

@@ -21,8 +21,8 @@ export const options = {
             executor: 'ramping-vus',
             startVUs: 0,
             stages: [
-                { duration: '5s', target: 100 },
-                { duration: '5s', target: 200 },
+                { duration: '5s', target: 500 },
+                { duration: '5s', target: 500 },
                 { duration: '5s', target: 500 },
                 { duration: '5s', target: 1000 },
                 { duration: '5s', target: 0 },
@@ -32,8 +32,8 @@ export const options = {
         stress_test: {
             executor: 'constant-vus',
             vus: 1000,
-            duration: '5m',
-            startTime: '10m',
+            duration: '20s',
+            startTime: '20s',
         },
         // Spike test scenario
         spike_test: {

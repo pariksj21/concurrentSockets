@@ -5,244 +5,865 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WebSocket Test UI</title>
     <style>
+        * {
+            box-sizing: border-box;
+        }
+        
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            max-width: 1200px;
-            margin: 20px auto;
-            padding: 0 20px;
-            background-color: #f5f5f5;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
         }
-        .grid-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 20px;
+        
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
         }
-        .container {
+        
+        .header {
             background: white;
-            padding: 10px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
-        .status {
-            padding: 5px;
-            margin: 5px 0;
-            border-radius: 4px;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
             text-align: center;
         }
-        .connected { background-color: #d4edda; color: #155724; }
-        .disconnected { background-color: #f8d7da; color: #721c24; }
-        .message-box {
-            height: 150px;
-            overflow-y: auto;
-            border: 1px solid #ddd;
-            padding: 5px;
-            margin: 5px 0;
-            border-radius: 4px;
-            background: #fafafa;
+        
+        .header h1 {
+            margin: 0 0 20px 0;
+            color: #2c3e50;
+            font-size: 2.5rem;
+            font-weight: 300;
         }
-        .controls {
-            margin: 10px 0;
+        
+        .header p {
+            color: #7f8c8d;
+            font-size: 1.1rem;
+            margin: 0;
+        }
+        
+        .control-panel {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .control-panel h2 {
+            margin: 0 0 20px 0;
+            color: #2c3e50;
+            font-size: 1.5rem;
+            font-weight: 400;
+        }
+        
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .form-group {
             display: flex;
-            gap: 5px;
+            flex-direction: column;
         }
-        button {
-            padding: 5px 10px;
+        
+        .form-group label {
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #555;
+            font-size: 0.9rem;
+        }
+        
+        .form-group input, .form-group select {
+            padding: 12px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 12px 24px;
             border: none;
-            border-radius: 4px;
-            background: #007bff;
-            color: white;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
             cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
-        button:hover {
-            background: #0056b3;
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
         }
-        button:disabled {
-            background: #ccc;
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
         }
-        input[type="text"] {
-            padding: 5px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            flex-grow: 1;
+        
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #6c757d;
+            border: 2px solid #e9ecef;
         }
-        .message {
-            margin: 3px 0;
-            padding: 3px;
-            border-radius: 4px;
+        
+        .btn-secondary:hover {
+            background: #e9ecef;
+            border-color: #dee2e6;
         }
-        .heartbeat {
-            background-color: #fff3cd;
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+        }
+        
+        .btn:disabled {
+            background: #e9ecef;
+            color: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .stats-bar {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 600;
+            color: #667eea;
+            display: block;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: #7f8c8d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .connections-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        
+        .connection-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+            transition: transform 0.3s ease;
+        }
+        
+        .connection-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .connection-header {
+            padding: 20px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .connection-status {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        
+        .status-connecting {
+            background: #fff3cd;
             color: #856404;
         }
-        .sent {
-            background-color: #e8f4ff;
+        
+        .status-connected {
+            background: #d1ecf1;
+            color: #0c5460;
         }
-        .received {
-            background-color: #e8ffe8;
+        
+        .status-disconnected {
+            background: #f8d7da;
+            color: #721c24;
         }
+        
+        .connection-id {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.9rem;
+            color: #6c757d;
+            word-break: break-all;
+        }
+        
+        .message-area {
+            padding: 20px;
+        }
+        
+        .message-box {
+            height: 200px;
+            overflow-y: auto;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            background: #f8f9fa;
+            margin-bottom: 15px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.85rem;
+        }
+        
+        .message {
+            margin: 8px 0;
+            padding: 8px 12px;
+            border-radius: 6px;
+            word-wrap: break-word;
+        }
+        
+        .message-sent {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+        }
+        
+        .message-received {
+            background: #f3e5f5;
+            border-left: 4px solid #9c27b0;
+        }
+        
+        .message-heartbeat {
+            background: #fff8e1;
+            border-left: 4px solid #ff9800;
+            opacity: 0.7;
+        }
+        
+        .message-error {
+            background: #ffebee;
+            border-left: 4px solid #f44336;
+        }
+        
+        .connection-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .connection-controls input {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #e9ecef;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+        
+        .connection-controls input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .connection-actions {
+            display: flex;
+            gap: 10px;
+            padding: 0 20px 20px;
+        }
+        
+        .btn-sm {
+            padding: 8px 16px;
+            font-size: 0.85rem;
+            flex: 1;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #7f8c8d;
+        }
+        
+        .empty-state i {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+        
+        .nav-tabs {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            overflow: hidden;
+        }
+        
+        .nav-tabs-header {
+            padding: 20px 25px;
+            border-bottom: 1px solid #e9ecef;
+            background: #f8f9fa;
+        }
+        
+        .nav-tabs-header h3 {
+            margin: 0;
+            color: #2c3e50;
+            font-size: 1.2rem;
+            font-weight: 500;
+        }
+        
+        .nav-tabs-header p {
+            margin: 5px 0 0 0;
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+        
+        .nav-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 0;
+        }
+        
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 25px 20px;
+            text-decoration: none;
+            color: #495057;
+            transition: all 0.3s ease;
+            border-right: 1px solid #e9ecef;
+            position: relative;
+        }
+        
+        .nav-item:last-child {
+            border-right: none;
+        }
+        
+        .nav-item:hover {
+            background: #f8f9fa;
+            color: #667eea;
+            transform: translateY(-2px);
+        }
+        
+        .nav-item-icon {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            opacity: 0.7;
+            transition: opacity 0.3s ease;
+        }
+        
+        .nav-item:hover .nav-item-icon {
+            opacity: 1;
+        }
+        
+        .nav-item-title {
+            font-weight: 600;
+            font-size: 1rem;
+            margin-bottom: 5px;
+            text-align: center;
+        }
+        
+        .nav-item-desc {
+            font-size: 0.8rem;
+            color: #6c757d;
+            text-align: center;
+            line-height: 1.4;
+        }
+        
+        .nav-item-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #28a745;
+            color: white;
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-weight: 500;
+        }
+        
+        .nav-item.external::after {
+            content: "↗";
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 0.8rem;
+            opacity: 0.5;
+        }
+        
+        @media (max-width: 768px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .button-group {
+                justify-content: center;
+            }
+            
+            .stats-bar {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+                         .connections-grid {
+                 grid-template-columns: 1fr;
+             }
+             
+             .nav-grid {
+                 grid-template-columns: 1fr;
+             }
+             
+             .nav-item {
+                 border-right: none;
+                 border-bottom: 1px solid #e9ecef;
+             }
+             
+             .nav-item:last-child {
+                 border-bottom: none;
+             }
+         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>WebSocket Test UI</h1>
-        
-        <div class="controls">
-            <input type="text" id="connectionId" placeholder="Connection ID">
-            <button id="connectBtn">Connect</button>
+    <div class="main-container">
+        <!-- Header -->
+        <div class="header">
+            <h1>SigIQ assignment - WebSocket Test Interface</h1>
+            <p>Test WebSocket connections with real-time monitoring and advanced controls</p>
         </div>
 
-        <div id="totalConnections" class="status">Total Connected Sockets: 0</div>
+        <!-- Navigation Tabs -->
+        <div class="nav-tabs">
+            <div class="nav-tabs-header">
+                <h3>Monitoring & Management Dashboards</h3>
+                <p>Access all monitoring tools and dashboards for comprehensive system observability</p>
+            </div>
+            <div class="nav-grid">
+                <a href="http://localhost:3000" target="_blank" class="nav-item external">
+                    <div class="nav-item-icon">📊</div>
+                    <div class="nav-item-title">Grafana</div>
+                    <div class="nav-item-desc">Visualize metrics, logs, and create custom dashboards</div>
+                    <div class="nav-item-badge">:3000</div>
+                </a>
+                <a href="http://localhost:9090" target="_blank" class="nav-item external">
+                    <div class="nav-item-icon">🔍</div>
+                    <div class="nav-item-title">Prometheus</div>
+                    <div class="nav-item-desc">Query metrics, explore targets, and view alerts</div>
+                    <div class="nav-item-badge">:9090</div>
+                </a>
+                <a href="http://localhost:8080" target="_blank" class="nav-item external">
+                    <div class="nav-item-icon">🔀</div>
+                    <div class="nav-item-title">Traefik</div>
+                    <div class="nav-item-desc">Load balancer dashboard, routing, and service discovery</div>
+                    <div class="nav-item-badge">:8080</div>
+                </a>
+                <a href="http://localhost/health" target="_blank" class="nav-item external">
+                    <div class="nav-item-icon">❤️</div>
+                    <div class="nav-item-title">Health Check</div>
+                    <div class="nav-item-desc">Application health status and readiness</div>
+                </a>
+                <a href="http://localhost/metrics" target="_blank" class="nav-item external">
+                    <div class="nav-item-icon">📈</div>
+                    <div class="nav-item-title">Metrics</div>
+                    <div class="nav-item-desc">Raw Prometheus metrics endpoint</div>
+                </a>
+            </div>
+        </div>
 
-        <div id="connections" class="grid-container"></div>
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <h2>Connection Controls</h2>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="connectionCount">Number of Connections</label>
+                    <input type="number" id="connectionCount" min="1" max="100" value="1" placeholder="Enter number of connections">
+                </div>
+                <div class="form-group">
+                    <label for="connectionIdPrefix">Connection ID Prefix (optional)</label>
+                    <input type="text" id="connectionIdPrefix" placeholder="e.g., test-conn (will append numbers)">
+                </div>
+                <div class="form-group">
+                    <label for="singleConnectionId">Single Connection ID (optional)</label>
+                    <input type="text" id="singleConnectionId" placeholder="Specific ID for single connection">
+                </div>
+                <div class="form-group">
+                    <label for="connectionMode">Connection Mode</label>
+                    <select id="connectionMode">
+                        <option value="single">Single Connection</option>
+                        <option value="multiple">Multiple Connections</option>
+                    </select>
+                </div>
+            </div>
+            <div class="button-group">
+                <button class="btn btn-primary" id="connectBtn">
+                    <span id="connectBtnText">Create Connection(s)</span>
+                </button>
+                <button class="btn btn-danger" id="disconnectAllBtn">Disconnect All</button>
+                <button class="btn btn-secondary" id="clearAllBtn">Clear All</button>
+            </div>
+        </div>
+
+        <!-- Stats Bar -->
+        <div class="stats-bar">
+            <div class="stat-item">
+                <span class="stat-value" id="totalConnections">0</span>
+                <span class="stat-label">Total Connections</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value" id="activeConnections">0</span>
+                <span class="stat-label">Active Connections</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value" id="totalMessages">0</span>
+                <span class="stat-label">Messages Sent</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value" id="totalReceived">0</span>
+                <span class="stat-label">Messages Received</span>
+            </div>
+        </div>
+
+        <!-- Connections Grid -->
+        <div id="connectionsContainer" class="connections-grid">
+            <div class="empty-state">
+                <div style="font-size: 4rem; margin-bottom: 20px; opacity: 0.5;">🔌</div>
+                <h3>No connections yet</h3>
+                <p>Create your first WebSocket connection using the controls above</p>
+            </div>
+        </div>
     </div>
 
     <script>
-        const connectionsContainer = document.getElementById('connections');
+        // Global state
+        let connections = new Map();
+        let totalMessagesSent = 0;
+        let totalMessagesReceived = 0;
+        let connectionCounter = 0;
+
+        // DOM elements
+        const connectionsContainer = document.getElementById('connectionsContainer');
         const connectBtn = document.getElementById('connectBtn');
-        const connectionIdInput = document.getElementById('connectionId');
-        const totalConnections = document.getElementById('totalConnections');
+        const connectBtnText = document.getElementById('connectBtnText');
+        const disconnectAllBtn = document.getElementById('disconnectAllBtn');
+        const clearAllBtn = document.getElementById('clearAllBtn');
+        const connectionCountInput = document.getElementById('connectionCount');
+        const connectionIdPrefixInput = document.getElementById('connectionIdPrefix');
+        const singleConnectionIdInput = document.getElementById('singleConnectionId');
+        const connectionModeSelect = document.getElementById('connectionMode');
 
-        let totalConnectedSockets = 0;
+        // Stats elements
+        const totalConnectionsEl = document.getElementById('totalConnections');
+        const activeConnectionsEl = document.getElementById('activeConnections');
+        const totalMessagesEl = document.getElementById('totalMessages');
+        const totalReceivedEl = document.getElementById('totalReceived');
 
-        function updateTotalConnections() {
-            totalConnections.textContent = `Total Connected Sockets: ${totalConnectedSockets}`;
+        // Update connection mode visibility
+        connectionModeSelect.addEventListener('change', updateFormVisibility);
+        
+        function updateFormVisibility() {
+            const mode = connectionModeSelect.value;
+            const isMultiple = mode === 'multiple';
+            
+            connectionCountInput.parentElement.style.display = isMultiple ? 'block' : 'none';
+            connectionIdPrefixInput.parentElement.style.display = isMultiple ? 'block' : 'none';
+            singleConnectionIdInput.parentElement.style.display = isMultiple ? 'none' : 'block';
+            
+            connectBtnText.textContent = isMultiple ? 'Create Multiple Connections' : 'Create Connection';
         }
 
-        function createConnectionBox(connectionId) {
-            const container = document.createElement('div');
-            container.className = 'container';
-
-            const status = document.createElement('div');
-            status.className = 'status connecting';
-            status.textContent = 'Connecting...';
-
-            const messageBox = document.createElement('div');
-            messageBox.className = 'message-box';
-
-            const controls = document.createElement('div');
-            controls.className = 'controls';
-
-            const messageInput = document.createElement('input');
-            messageInput.type = 'text';
-            messageInput.placeholder = 'Type a message...';
-            messageInput.disabled = true;
-
-            const sendBtn = document.createElement('button');
-            sendBtn.textContent = 'Send';
-            sendBtn.disabled = true;
-
-            const disconnectBtn = document.createElement('button');
-            disconnectBtn.textContent = 'Disconnect';
-            disconnectBtn.disabled = true;
-
-            controls.appendChild(messageInput);
-            controls.appendChild(sendBtn);
-            controls.appendChild(disconnectBtn);
-
-            container.appendChild(status);
-            container.appendChild(messageBox);
-            container.appendChild(controls);
-
-            connectionsContainer.appendChild(container);
-
-            return { container, status, messageBox, messageInput, sendBtn, disconnectBtn };
+        function updateStats() {
+            const activeCount = Array.from(connections.values()).filter(conn => conn.ws.readyState === WebSocket.OPEN).length;
+            
+            totalConnectionsEl.textContent = connections.size;
+            activeConnectionsEl.textContent = activeCount;
+            totalMessagesEl.textContent = totalMessagesSent;
+            totalReceivedEl.textContent = totalMessagesReceived;
         }
 
-        function connect() {
-            const connectionId = connectionIdInput.value || crypto.randomUUID();
-            const { container, status, messageBox, messageInput, sendBtn, disconnectBtn } = createConnectionBox(connectionId);
+        function generateConnectionId(prefix, index) {
+            if (connectionModeSelect.value === 'single') {
+                return singleConnectionIdInput.value || crypto.randomUUID();
+            }
+            
+            if (prefix) {
+                return `${prefix}-${index}`;
+            }
+            return crypto.randomUUID();
+        }
 
-            let wsUrl = `ws://localhost/ws/chat/${connectionId}`;
+        function addMessage(connectionId, content, type = 'received') {
+            const connection = connections.get(connectionId);
+            if (!connection) return;
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message message-${type}`;
+            
+            const timestamp = new Date().toLocaleTimeString();
+            const messageContent = typeof content === 'object' ? JSON.stringify(content, null, 2) : content;
+            
+            messageDiv.innerHTML = `<strong>[${timestamp}]</strong><br>${messageContent}`;
+            
+            connection.messageBox.appendChild(messageDiv);
+            connection.messageBox.scrollTop = connection.messageBox.scrollHeight;
+
+            if (type === 'sent') {
+                totalMessagesSent++;
+            } else if (type === 'received') {
+                totalMessagesReceived++;
+            }
+            
+            updateStats();
+        }
+
+        function createConnectionCard(connectionId) {
+            const card = document.createElement('div');
+            card.className = 'connection-card';
+            card.id = `connection-${connectionId}`;
+
+            card.innerHTML = `
+                <div class="connection-header">
+                    <div class="connection-status status-connecting">Connecting...</div>
+                    <div class="connection-id">ID: ${connectionId}</div>
+                </div>
+                <div class="message-area">
+                    <div class="message-box"></div>
+                    <div class="connection-controls">
+                        <input type="text" placeholder="Type a message..." class="message-input">
+                        <button class="btn btn-primary btn-sm send-btn" disabled>Send</button>
+                    </div>
+                </div>
+                <div class="connection-actions">
+                    <button class="btn btn-danger btn-sm disconnect-btn" disabled>Disconnect</button>
+                    <button class="btn btn-secondary btn-sm remove-btn">Remove</button>
+                </div>
+            `;
+
+            // Remove empty state if it exists
+            const emptyState = connectionsContainer.querySelector('.empty-state');
+            if (emptyState) {
+                emptyState.remove();
+            }
+
+            connectionsContainer.appendChild(card);
+
+            // Get references to elements
+            const statusEl = card.querySelector('.connection-status');
+            const messageBox = card.querySelector('.message-box');
+            const messageInput = card.querySelector('.message-input');
+            const sendBtn = card.querySelector('.send-btn');
+            const disconnectBtn = card.querySelector('.disconnect-btn');
+            const removeBtn = card.querySelector('.remove-btn');
+
+            // Store references
+            const connectionData = {
+                card,
+                statusEl,
+                messageBox,
+                messageInput,
+                sendBtn,
+                disconnectBtn,
+                removeBtn,
+                ws: null
+            };
+
+            connections.set(connectionId, connectionData);
+
+            // Event listeners
+            sendBtn.addEventListener('click', () => sendMessage(connectionId));
+            messageInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') sendMessage(connectionId);
+            });
+            disconnectBtn.addEventListener('click', () => disconnectConnection(connectionId));
+            removeBtn.addEventListener('click', () => removeConnection(connectionId));
+
+            return connectionData;
+        }
+
+        function connectWebSocket(connectionId) {
+            const connection = connections.get(connectionId);
+            if (!connection) return;
+
+            const wsUrl = `ws://localhost/ws/chat/${connectionId}`;
             const ws = new WebSocket(wsUrl);
+            connection.ws = ws;
 
             ws.onopen = () => {
-                status.textContent = 'Connected Socket:' + connectionId;
-                status.className = 'status connected';
-                messageInput.disabled = false;
-                sendBtn.disabled = false;
-                disconnectBtn.disabled = false;
-
-                totalConnectedSockets++;
-                updateTotalConnections();
+                connection.statusEl.textContent = 'Connected';
+                connection.statusEl.className = 'connection-status status-connected';
+                connection.messageInput.disabled = false;
+                connection.sendBtn.disabled = false;
+                connection.disconnectBtn.disabled = false;
+                
+                addMessage(connectionId, 'Connection established', 'received');
+                updateStats();
             };
 
             ws.onmessage = (event) => {
-                console.log('onmessage', event);
-                const data = JSON.parse(event.data);
-                const msgDiv = document.createElement('div');
-                msgDiv.className = 'message received';
-                msgDiv.textContent = JSON.stringify(data);
-                messageBox.appendChild(msgDiv);
-                messageBox.scrollTop = messageBox.scrollHeight;
+                try {
+                    const data = JSON.parse(event.data);
+                    let messageType = 'received';
+                    
+                    // Determine message type based on content
+                    if (data.type === 'heartbeat') {
+                        messageType = 'heartbeat';
+                    } else if (data.type === 'reconnection') {
+                        messageType = 'received';
+                        // Show reconnection notification
+                        connection.statusEl.textContent = `Reconnected (Previous: ${data.previousCount})`;
+                        connection.statusEl.className = 'connection-status status-connected';
+                    } else if (data.type === 'welcome') {
+                        messageType = 'received';
+                    } else if (data.type === 'message_response') {
+                        messageType = 'received';
+                    } else if (data.type === 'disconnect_ack') {
+                        messageType = 'received';
+                    } else if (data.type === 'shutdown') {
+                        messageType = 'error';
+                    }
+                    
+                    addMessage(connectionId, data, messageType);
+                } catch (e) {
+                    addMessage(connectionId, event.data, 'received');
+                }
             };
 
             ws.onclose = (event) => {
-                console.log('onclose', event);
+                connection.statusEl.textContent = 'Disconnected';
+                connection.statusEl.className = 'connection-status status-disconnected';
+                connection.messageInput.disabled = true;
+                connection.sendBtn.disabled = true;
+                connection.disconnectBtn.disabled = true;
                 
-                // Create close message with event details
-                const closeData = {
+                const closeInfo = {
                     code: event.code,
                     reason: event.reason || 'No reason provided',
-                    wasClean: event.wasClean,
-                    timestamp: new Date().toISOString()
+                    wasClean: event.wasClean
                 };
                 
-                const msgDiv = document.createElement('div');
-                status.textContent = 'Disconnected';
-                status.className = 'status disconnected';
-                msgDiv.className = 'message received';
-                msgDiv.textContent = `Connection closed: ${JSON.stringify(closeData)}`;
-                messageInput.disabled = true;
-                messageBox.appendChild(msgDiv);
-                sendBtn.disabled = true;
-                disconnectBtn.disabled = true;
-
-                totalConnectedSockets--;
-                updateTotalConnections();
+                addMessage(connectionId, `Connection closed: ${JSON.stringify(closeInfo)}`, 'error');
+                updateStats();
             };
 
             ws.onerror = (error) => {
-                const msgDiv = document.createElement('div');
-                msgDiv.className = 'message error';
-                msgDiv.textContent = 'WebSocket error';
-                messageBox.appendChild(msgDiv);
+                addMessage(connectionId, 'WebSocket error occurred', 'error');
                 console.error('WebSocket error:', error);
             };
+        }
 
-            sendBtn.addEventListener('click', () => {
-                if (ws && messageInput.value) {
-                    ws.send(messageInput.value);
-                    const msgDiv = document.createElement('div');
-                    msgDiv.className = 'message sent';
-                    msgDiv.textContent = `Sent: ${messageInput.value}`;
-                    messageBox.appendChild(msgDiv);
-                    messageInput.value = '';
-                }
-            });
+        function sendMessage(connectionId) {
+            const connection = connections.get(connectionId);
+            if (!connection || !connection.ws || connection.ws.readyState !== WebSocket.OPEN) return;
 
-            disconnectBtn.addEventListener('click', () => {
-                if (ws) {
-                    // Send disconnect message first, then close after receiving response
-                    ws.send(JSON.stringify({ disconnect: true }));
-                    // Close after a short delay to allow server to send final message
-                    setTimeout(() => {
-                        ws.close();
-                    }, 200);
-                }
-            });
+            const message = connection.messageInput.value.trim();
+            if (!message) return;
 
-            messageInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    sendBtn.click();
-                }
-            });
-        }        
+            connection.ws.send(message);
+            addMessage(connectionId, `Sent: ${message}`, 'sent');
+            connection.messageInput.value = '';
+        }
+
+        function disconnectConnection(connectionId) {
+            const connection = connections.get(connectionId);
+            if (!connection || !connection.ws) return;
+
+            if (connection.ws.readyState === WebSocket.OPEN) {
+                connection.ws.send(JSON.stringify({ disconnect: true }));
+                setTimeout(() => {
+                    connection.ws.close();
+                }, 200);
+            }
+        }
+
+        function removeConnection(connectionId) {
+            const connection = connections.get(connectionId);
+            if (!connection) return;
+
+            if (connection.ws && connection.ws.readyState === WebSocket.OPEN) {
+                connection.ws.close();
+            }
+
+            connection.card.remove();
+            connections.delete(connectionId);
+            updateStats();
+
+            // Show empty state if no connections
+            if (connections.size === 0) {
+                connectionsContainer.innerHTML = `
+                    <div class="empty-state">
+                        <div style="font-size: 4rem; margin-bottom: 20px; opacity: 0.5;">🔌</div>
+                        <h3>No connections</h3>
+                        <p>All connections have been removed</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Main connect function
         connectBtn.addEventListener('click', () => {
-            [...Array(1e1)].forEach(() => {
-                connect();
+            const mode = connectionModeSelect.value;
+            const count = mode === 'multiple' ? parseInt(connectionCountInput.value) || 1 : 1;
+            const prefix = connectionIdPrefixInput.value.trim();
+
+            for (let i = 0; i < count; i++) {
+                const connectionId = generateConnectionId(prefix, i + 1);
+                createConnectionCard(connectionId);
+                connectWebSocket(connectionId);
+            }
+
+            updateStats();
+        });
+
+        // Disconnect all connections
+        disconnectAllBtn.addEventListener('click', () => {
+            connections.forEach((connection, connectionId) => {
+                disconnectConnection(connectionId);
             });
         });
+
+        // Clear all connections
+        clearAllBtn.addEventListener('click', () => {
+            connections.forEach((connection, connectionId) => {
+                removeConnection(connectionId);
+            });
+        });
+
+        // Initialize form visibility
+        updateFormVisibility();
+        updateStats();
     </script>
 </body>
 </html> 

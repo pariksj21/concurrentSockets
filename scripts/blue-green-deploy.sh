@@ -265,17 +265,17 @@ deploy_to_environment() {
     return 0
 }
 
-# Function to perform load test
-run_load_test() {
+# Function to perform smoke test
+run_smoke_test() {
     local target_env=$1
     
-    log "Running load test against $target_env environment through Traefik..."
+    log "Running smoke test against $target_env environment..."
     
     # The target environment should already be running and accessible
-    # We'll test it by temporarily enabling it in Traefik
-    log "Testing $target_env environment through Traefik..."
+    # We'll test it to ensure basic functionality works
+    log "Testing $target_env environment basic functionality..."
     
-    # Simple load test using curl through Traefik
+    # Simple smoke test - basic health check validation
     local failed_requests=0
     local total_requests=50
     
@@ -289,13 +289,13 @@ run_load_test() {
     
     local success_rate=$(( (total_requests - failed_requests) * 100 / total_requests ))
     
-    log "Load test completed: $success_rate% success rate ($((total_requests - failed_requests))/$total_requests)"
+    log "Smoke test completed: $success_rate% success rate ($((total_requests - failed_requests))/$total_requests)"
     
     if [ $success_rate -ge 95 ]; then
-        success "Load test passed"
+        success "Smoke test passed"
         return 0
     else
-        error "Load test failed (success rate: $success_rate%)"
+        error "Smoke test failed (success rate: $success_rate%)"
         return 1
     fi
 }
@@ -438,9 +438,9 @@ main() {
         exit 1
     fi
     
-    # Run load test against new environment
-    if ! run_load_test "$target_env"; then
-        error "Load test failed, rolling back..."
+    # Run smoke test against new environment
+    if ! run_smoke_test "$target_env"; then
+        error "Smoke test failed, rolling back..."
         rollback "$target_env" "$current_env"
         exit 1
     fi
