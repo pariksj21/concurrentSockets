@@ -14,7 +14,10 @@ env:
 jobs:
   # Build and Test Job
   build-and-test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     
     steps:
     - name: Checkout code
@@ -45,18 +48,41 @@ jobs:
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: build-artifacts
+        name: build-artifacts-${{ matrix.os }}
         path: app/dist/
         retention-days: 7
 
   # Docker Build Job
   docker-build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     needs: [build-and-test]
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+    
+    - name: Setup Docker (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        # Check if Docker is already running
+        if ! docker info > /dev/null 2>&1; then
+          echo "Docker is not running. Please ensure Docker Desktop is installed and running on your macOS runner."
+          # Try to start Docker Desktop if it's installed
+          if [ -f "/Applications/Docker.app/Contents/MacOS/Docker" ]; then
+            echo "Starting Docker Desktop..."
+            open -a Docker
+            # Wait for Docker to start
+            echo "Waiting for Docker to start..."
+            timeout 60 bash -c 'until docker info > /dev/null 2>&1; do sleep 2; done'
+          else
+            echo "Docker Desktop not found. Please install Docker Desktop for macOS."
+            exit 1
+          fi
+        fi
+        echo "Docker is running on macOS"
       
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
@@ -75,8 +101,27 @@ jobs:
         # Wait for container to start
         sleep 10
         
+        # Cross-platform health check with timeout
+        wait_for_health() {
+          local max_attempts=30
+          local attempt=0
+          
+          while [ $attempt -lt $max_attempts ]; do
+            if curl -f http://localhost:3001/health > /dev/null 2>&1; then
+              echo "Health endpoint is ready!"
+              return 0
+            fi
+            echo "Health check attempt $((attempt + 1))/$max_attempts failed, retrying..."
+            sleep 1
+            attempt=$((attempt + 1))
+          done
+          
+          echo "Health endpoint failed to become ready after $max_attempts attempts"
+          return 1
+        }
+        
         # Test health endpoint
-        timeout 30 bash -c 'until curl -f http://localhost:3001/health; do sleep 1; done'
+        wait_for_health
         
         # Test readiness endpoint
         curl -f http://localhost:3001/readyz || echo "Readiness check may fail during startup"
@@ -100,18 +145,41 @@ jobs:
       if: github.ref == 'refs/heads/main'
       uses: actions/upload-artifact@v4
       with:
-        name: docker-image
+        name: docker-image-${{ matrix.os }}
         path: websocket-server.tar.gz
         retention-days: 7
 
   # Monitor and Test Job
   monitor-test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     needs: [docker-build]
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+    
+    - name: Setup Docker (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        # Check if Docker is already running
+        if ! docker info > /dev/null 2>&1; then
+          echo "Docker is not running. Please ensure Docker Desktop is installed and running on your macOS runner."
+          # Try to start Docker Desktop if it's installed
+          if [ -f "/Applications/Docker.app/Contents/MacOS/Docker" ]; then
+            echo "Starting Docker Desktop..."
+            open -a Docker
+            # Wait for Docker to start
+            echo "Waiting for Docker to start..."
+            timeout 60 bash -c 'until docker info > /dev/null 2>&1; do sleep 2; done'
+          else
+            echo "Docker Desktop not found. Please install Docker Desktop for macOS."
+            exit 1
+          fi
+        fi
+        echo "Docker is running on macOS"
       
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
@@ -123,13 +191,15 @@ jobs:
         
     - name: Start services for monitoring
       run: |
+        # Create Docker network for inter-container communication
+        docker network create test-network
+        
         # Start Redis (needed for full functionality)
-        docker run -d --name redis-test -p 6379:6379 redis:7-alpine
+        docker run -d --name redis-test --network test-network -p 6379:6379 redis:7-alpine
         
         # Start WebSocket server
-        docker run -d --name websocket-test -p 3001:3001 \
-          --link redis-test:redis \
-          -e REDIS_URL=redis://redis:6379 \
+        docker run -d --name websocket-test --network test-network -p 3001:3001 \
+          -e REDIS_URL=redis://redis-test:6379 \
           websocket-server:test
         
         # Wait for services to be ready
@@ -142,7 +212,27 @@ jobs:
     - name: Wait for service readiness
       run: |
         echo "Waiting for WebSocket server to be ready..."
-        timeout 60 bash -c 'until curl -f http://localhost:3001/health; do sleep 2; done'
+        
+        # Cross-platform timeout function
+        wait_for_service() {
+          local max_attempts=30
+          local attempt=0
+          
+          while [ $attempt -lt $max_attempts ]; do
+            if curl -f http://localhost:3001/health > /dev/null 2>&1; then
+              echo "Service is ready!"
+              return 0
+            fi
+            echo "Attempt $((attempt + 1))/$max_attempts failed, retrying in 2 seconds..."
+            sleep 2
+            attempt=$((attempt + 1))
+          done
+          
+          echo "Service failed to become ready after $max_attempts attempts"
+          return 1
+        }
+        
+        wait_for_service
         
         echo "Testing endpoints..."
         curl -f http://localhost:3001/healthz || echo "Liveness check failed"
@@ -156,9 +246,27 @@ jobs:
         # Make monitor script executable
         chmod +x scripts/monitor.sh
         
-        # Run monitor script in background and capture output
-        timeout 20s ./scripts/monitor.sh > monitor_output.log 2>&1 &
-        MONITOR_PID=$!
+        # Cross-platform timeout for monitor script
+        if [[ "$RUNNER_OS" == "Linux" ]]; then
+          # Linux has timeout command
+          timeout 20s ./scripts/monitor.sh > monitor_output.log 2>&1 &
+        elif [[ "$RUNNER_OS" == "macOS" ]]; then
+          # macOS might not have timeout, use gtimeout if available or manual timeout
+          if command -v gtimeout > /dev/null 2>&1; then
+            gtimeout 20s ./scripts/monitor.sh > monitor_output.log 2>&1 &
+          else
+            # Manual timeout implementation
+            ./scripts/monitor.sh > monitor_output.log 2>&1 &
+            MONITOR_PID=$!
+            # Kill the process after 20 seconds
+            (sleep 20 && kill $MONITOR_PID 2>/dev/null) &
+          fi
+        else
+          # Fallback for other systems
+          ./scripts/monitor.sh > monitor_output.log 2>&1 &
+          MONITOR_PID=$!
+          (sleep 20 && kill $MONITOR_PID 2>/dev/null) &
+        fi
         
         # Wait for monitor to run for 20 seconds
         sleep 20
@@ -200,7 +308,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: monitor-logs-and-artifacts
+        name: monitor-logs-and-artifacts-${{ matrix.os }}
         path: |
           logs/
           monitor_output.log
@@ -212,6 +320,7 @@ jobs:
         echo "Cleaning up containers..."
         docker stop websocket-test redis-test || true
         docker rm websocket-test redis-test || true
+        docker network rm test-network || true
 
   # Deploy Job (only on main branch)
   deploy:
@@ -224,10 +333,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Download Docker image
+    - name: Download Docker image (Ubuntu)
       uses: actions/download-artifact@v4
       with:
-        name: docker-image
+        name: docker-image-ubuntu-latest
         
     - name: Load Docker image
       run: |
