@@ -162,7 +162,7 @@ show_top_metrics() {
     done | head -5
     
     # Show connection summary
-    local connections=$(echo "$metrics_data" | grep "^websocket_connections_total" | awk '{print $2}')
+    local connections=$(echo "$metrics_data" | grep "^websocket_connections_active" | awk '{print $2}')
     local total_messages=$(echo "$metrics_data" | grep "^websocket_messages_total" | awk '{print $2}')
     local total_errors=$(echo "$metrics_data" | grep "^websocket_errors_total" | awk '{print $2}')
     

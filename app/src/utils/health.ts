@@ -1,4 +1,4 @@
-import { incrementHttpRequest, setConnectionCount, getMetrics, getContentType } from './metrics'
+import { setConnectionCount, getRequiredMetrics, getContentType } from './metrics'
 import { activeConnections } from './websocket'
 import { redisHealthCheck, isRedisAvailable } from './redis'
 
@@ -14,7 +14,6 @@ export const setShuttingDown = (shutting: boolean) => { isShuttingDown = shuttin
 // Health check handlers
 export const handleLivenessCheck = (requestLogger: any, requestId: string) => {
   requestLogger.debug('Liveness check requested')
-  incrementHttpRequest('GET', '/healthz', '200')
   
   return {
     status: 'ok',
@@ -29,7 +28,6 @@ export const handleReadinessCheck = (requestLogger: any, requestId: string) => {
   requestLogger.debug('Readiness check requested')
   
   if (isShuttingDown) {
-    incrementHttpRequest('GET', '/readyz', '503')
     return {
       response: new Response(JSON.stringify({
         status: 'not_ready',
@@ -46,7 +44,6 @@ export const handleReadinessCheck = (requestLogger: any, requestId: string) => {
   }
   
   if (!isReady) {
-    incrementHttpRequest('GET', '/readyz', '503')
     return {
       response: new Response(JSON.stringify({
         status: 'not_ready',
@@ -63,7 +60,6 @@ export const handleReadinessCheck = (requestLogger: any, requestId: string) => {
     }
   }
   
-  incrementHttpRequest('GET', '/readyz', '200')
   return {
     response: {
       status: 'ready',
@@ -80,7 +76,6 @@ export const handleReadinessCheck = (requestLogger: any, requestId: string) => {
 
 export const handleHealthCheck = async (requestLogger: any, requestId: string) => {
   requestLogger.debug('Health check requested')
-  incrementHttpRequest('GET', '/health', '200')
   
   // Sync Prometheus gauge with actual connection count
   setConnectionCount(activeConnections.size)
@@ -128,8 +123,7 @@ export const handleMetricsEndpoint = async (requestLogger: any, requestId: strin
   // Sync Prometheus gauge with actual connection count before exposing metrics
   setConnectionCount(activeConnections.size)
   
-  const metrics = await getMetrics()
-  incrementHttpRequest('GET', '/metrics', '200')
+  const metrics = await getRequiredMetrics()
   
   return new Response(metrics, {
     headers: { 'Content-Type': getContentType() }

@@ -133,8 +133,8 @@ jobs:
         # Test liveness endpoint
         curl -f http://localhost:3001/healthz
         
-        # Test metrics endpoint
-        curl -f http://localhost:3001/metrics | grep -q "websocket_connections_total"
+        # Test metrics endpoint  
+        curl -f http://localhost:3001/metrics | grep -q "websocket_connections_active"
         
         # Cleanup
         docker stop test-container

@@ -16,7 +16,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "websocket_connections_total",
+          "expr": "websocket_connections_active",
           "refId": "A"
         }
       ],
@@ -172,7 +172,7 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "websocket_connections_total",
+          "expr": "websocket_connections_active",
           "refId": "A",
           "legendFormat": "Active Connections"
         }
