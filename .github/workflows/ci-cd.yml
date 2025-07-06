@@ -39,7 +39,11 @@ jobs:
         
     - name: Run tests
       working-directory: ./app
-      run: bun test
+      run: |
+        echo "Running tests on ${{ runner.os }}..."
+        # Note: Some tests may show warnings on macOS due to Bun's PerformanceObserver limitation
+        # This is expected and handled gracefully in the test code
+        bun test
       
     - name: Build application
       working-directory: ./app
