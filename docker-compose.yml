@@ -31,21 +31,30 @@ services:
           memory: 512M
     labels:
       - "traefik.enable=${BLUE_ENABLED:-true}"
+      # Main HTTP router with higher priority when enabled
       - "traefik.http.routers.websocket-blue.rule=Host(`localhost`)"
       - "traefik.http.routers.websocket-blue.entrypoints=web"
-      - "traefik.http.routers.websocket-blue.service=websocket-blue@docker"
-      - "traefik.http.services.websocket-blue.loadbalancer.server.port=3001"
+      - "traefik.http.routers.websocket-blue.service=websocket-blue"
+      - "traefik.http.routers.websocket-blue.priority=100"
+      # WebSocket router with highest priority
       - "traefik.http.routers.websocket-blue-ws.rule=Host(`localhost`) && PathPrefix(`/ws/`)"
       - "traefik.http.routers.websocket-blue-ws.entrypoints=web,websecure"
       - "traefik.http.routers.websocket-blue-ws.tls=true"
-      - "traefik.http.routers.websocket-blue-ws.service=websocket-blue@docker"
+      - "traefik.http.routers.websocket-blue-ws.service=websocket-blue"
+      - "traefik.http.routers.websocket-blue-ws.priority=200"
+      # Health check router
       - "traefik.http.routers.websocket-blue-health.rule=Host(`localhost`) && Path(`/health`)"
       - "traefik.http.routers.websocket-blue-health.entrypoints=web"
-      - "traefik.http.routers.websocket-blue-health.service=websocket-blue@docker"
+      - "traefik.http.routers.websocket-blue-health.service=websocket-blue"
+      - "traefik.http.routers.websocket-blue-health.priority=150"
+      # Metrics router
       - "traefik.http.routers.websocket-blue-metrics.rule=Host(`localhost`) && Path(`/metrics`)"
       - "traefik.http.routers.websocket-blue-metrics.entrypoints=web,websecure"
       - "traefik.http.routers.websocket-blue-metrics.tls=true"
-      - "traefik.http.routers.websocket-blue-metrics.service=websocket-blue@docker"
+      - "traefik.http.routers.websocket-blue-metrics.service=websocket-blue"
+      - "traefik.http.routers.websocket-blue-metrics.priority=150"
+      # Service definition
+      - "traefik.http.services.websocket-blue.loadbalancer.server.port=3001"
       - "traefik.http.services.websocket-blue.loadbalancer.healthcheck.path=/health"
       - "traefik.http.services.websocket-blue.loadbalancer.healthcheck.interval=30s"
       - "traefik.http.services.websocket-blue.loadbalancer.healthcheck.timeout=5s"
@@ -82,21 +91,30 @@ services:
       - green
     labels:
       - "traefik.enable=${GREEN_ENABLED:-false}"
+      # Main HTTP router with higher priority when enabled
       - "traefik.http.routers.websocket-green.rule=Host(`localhost`)"
       - "traefik.http.routers.websocket-green.entrypoints=web"
-      - "traefik.http.routers.websocket-green.service=websocket-green@docker"
-      - "traefik.http.services.websocket-green.loadbalancer.server.port=3001"
+      - "traefik.http.routers.websocket-green.service=websocket-green"
+      - "traefik.http.routers.websocket-green.priority=110"
+      # WebSocket router with highest priority (higher than blue when enabled)
       - "traefik.http.routers.websocket-green-ws.rule=Host(`localhost`) && PathPrefix(`/ws/`)"
       - "traefik.http.routers.websocket-green-ws.entrypoints=web,websecure"
       - "traefik.http.routers.websocket-green-ws.tls=true"
-      - "traefik.http.routers.websocket-green-ws.service=websocket-green@docker"
+      - "traefik.http.routers.websocket-green-ws.service=websocket-green"
+      - "traefik.http.routers.websocket-green-ws.priority=210"
+      # Health check router
       - "traefik.http.routers.websocket-green-health.rule=Host(`localhost`) && Path(`/health`)"
       - "traefik.http.routers.websocket-green-health.entrypoints=web"
-      - "traefik.http.routers.websocket-green-health.service=websocket-green@docker"
+      - "traefik.http.routers.websocket-green-health.service=websocket-green"
+      - "traefik.http.routers.websocket-green-health.priority=160"
+      # Metrics router
       - "traefik.http.routers.websocket-green-metrics.rule=Host(`localhost`) && Path(`/metrics`)"
       - "traefik.http.routers.websocket-green-metrics.entrypoints=web,websecure"
       - "traefik.http.routers.websocket-green-metrics.tls=true"
-      - "traefik.http.routers.websocket-green-metrics.service=websocket-green@docker"
+      - "traefik.http.routers.websocket-green-metrics.service=websocket-green"
+      - "traefik.http.routers.websocket-green-metrics.priority=160"
+      # Service definition
+      - "traefik.http.services.websocket-green.loadbalancer.server.port=3001"
       - "traefik.http.services.websocket-green.loadbalancer.healthcheck.path=/health"
       - "traefik.http.services.websocket-green.loadbalancer.healthcheck.interval=30s"
       - "traefik.http.services.websocket-green.loadbalancer.healthcheck.timeout=5s"
