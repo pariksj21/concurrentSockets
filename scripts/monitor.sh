@@ -17,6 +17,7 @@ NC='\033[0m' # No Color
 METRICS_URL="http://localhost/metrics"
 LOG_TAIL_LINES=50
 METRICS_INTERVAL=10
+LOG_MONITOR_PID=""
 
 # Logging functions
 log() {
@@ -80,7 +81,7 @@ get_active_container() {
     return 0
 }
 
-# Function to tail logs for errors
+# Function to tail logs for errors and important events
 tail_error_logs() {
     local container_name=$1
     
@@ -89,17 +90,28 @@ tail_error_logs() {
         return 1
     fi
     
-    info "Monitoring ERROR logs from container: $container_name"
+    info "Monitoring logs from container: $container_name"
     
-    # Tail logs and filter for ERROR, with timestamps
-    docker logs -f --tail="$LOG_TAIL_LINES" "$container_name" 2>&1 | \
+    # Tail logs and filter for ERROR and important events
+    (docker logs -f --tail="$LOG_TAIL_LINES" "$container_name" 2>&1 | \
     while IFS= read -r line; do
+        # Show ERROR messages in red
         if echo "$line" | grep -i "error" >/dev/null 2>&1; then
             echo -e "${RED}[$(date '+%H:%M:%S')] ERROR:${NC} $line"
+        # Show connection events in green
+        elif echo "$line" | grep -E "(Connection opened|Connection closed)" >/dev/null 2>&1; then
+            echo -e "${GREEN}[$(date '+%H:%M:%S')] CONN:${NC} $line"
+        # Show SIGTERM/shutdown events in yellow
+        elif echo "$line" | grep -E "(SIGTERM|SIGINT|shutdown|Exiting)" >/dev/null 2>&1; then
+            echo -e "${YELLOW}[$(date '+%H:%M:%S')] SHUTDOWN:${NC} $line"
+        # Show warning messages in yellow
+        elif echo "$line" | grep -i "warn" >/dev/null 2>&1; then
+            echo -e "${YELLOW}[$(date '+%H:%M:%S')] WARN:${NC} $line"
         fi
-    done &
+    done) &
     
-    return $!
+    # Store the PID of the background process
+    LOG_MONITOR_PID=$!
 }
 
 # Function to fetch and display top metrics
@@ -197,7 +209,10 @@ show_health_status() {
 cleanup() {
     log "Stopping monitoring..."
     # Kill background processes
-    jobs -p | xargs -r kill 2>/dev/null
+    if [ -n "$LOG_MONITOR_PID" ]; then
+        kill "$LOG_MONITOR_PID" 2>/dev/null || true
+    fi
+    jobs -p | xargs -r kill 2>/dev/null || true
     exit 0
 }
 
@@ -207,7 +222,7 @@ main() {
     echo "╔══════════════════════════════════════════════════════════════╗"
     echo "║                   WebSocket Server Monitor                   ║"
     echo "║                                                              ║"
-    echo "║  • Tails container logs for ERROR messages                  ║"
+    echo "║  • Tails logs for ERROR, WARN, and connection events        ║"
     echo "║  • Shows top-5 metrics every ${METRICS_INTERVAL}s                           ║"
     echo "║  • Displays health status                                   ║"
     echo "║  • Press Ctrl+C to stop                                     ║"
@@ -236,7 +251,6 @@ main() {
     
     # Start log monitoring in background
     tail_error_logs "$container_name"
-    local log_pid=$!
     
     # Main monitoring loop
     local iteration=0
@@ -270,7 +284,7 @@ case "${1:-}" in
         echo "  test                Run a quick test of metrics endpoint"
         echo
         echo "This script monitors the WebSocket server by:"
-        echo "  1. Tailing container logs for ERROR messages"
+        echo "  1. Tailing container logs for ERROR, WARN, and connection events"
         echo "  2. Fetching and displaying top-5 metrics every ${METRICS_INTERVAL}s"
         echo "  3. Showing health status periodically"
         echo
