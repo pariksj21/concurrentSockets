@@ -7,25 +7,8 @@ global:
 entryPoints:
   web:
     address: ":80"
-    # http:
-      # redirections:
-        # entryPoint:
-          # to: websecure
-          # scheme: https
-          # permanent: true
-  websecure:
-    address: ":443"
   traefik:
     address: ":8080"
-
-# Certificate configuration
-certificatesResolvers:
-  letsencrypt:
-    acme:
-      email: admin@localhost
-      storage: /etc/traefik/acme/acme.json
-      httpChallenge:
-        entryPoint: web
 
 # Providers
 providers:

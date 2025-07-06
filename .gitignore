@@ -15,6 +15,10 @@
 # production
 /build
 
+# logs
+app/logs/
+app/dist/
+
 # misc
 .DS_Store
 *.pem

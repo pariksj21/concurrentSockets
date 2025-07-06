@@ -63,10 +63,10 @@ cd concurrentSocket
 ### 2. Start the Stack
 ```bash
 # Start the blue environment (default)
-docker compose up -d
+docker compose -f docker/compose/docker-compose.yml up -d
 
 # Or start with logging stack
-docker compose --profile logging up -d
+docker compose -f docker/compose/docker-compose.yml --profile logging up -d
 ```
 
 ### 3. Verify Deployment

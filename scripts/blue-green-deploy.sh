@@ -4,7 +4,8 @@ set -e
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-DOCKER_COMPOSE_FILE="$PROJECT_DIR/docker-compose.yml"
+DOCKER_COMPOSE_FILE="$PROJECT_DIR/docker/compose/docker-compose.yml"
+DOCKER_COMPOSE_CMD="docker compose -f $DOCKER_COMPOSE_FILE"
 HEALTH_CHECK_TIMEOUT=60
 HEALTH_CHECK_INTERVAL=5
 MAX_HEALTH_CHECKS=12
@@ -122,19 +123,30 @@ switch_traefik_routing() {
     
     log "Switching Traefik routing from $old_environment to $new_environment..."
     
-    # Step 1: Enable both environments temporarily (blue-green overlap)
-    log "Phase 1: Enabling both environments for zero-downtime transition..."
+    # Step 1: Both environments are now enabled (blue-green overlap)
+    log "Phase 1: Both environments enabled for zero-downtime transition..."
+    
+    # The new environment container is already running and enabled in Traefik
+    # from deploy_to_environment(). Verify it's ready to receive traffic.
     if [ "$new_environment" = "green" ]; then
-        GREEN_ENABLED=true BLUE_ENABLED=true docker compose --profile green up -d websocket-green
-        GREEN_ENABLED=true BLUE_ENABLED=true docker compose up -d websocket-blue
+        if is_container_running "websocket-green"; then
+            log "GREEN container is running and enabled in Traefik"
+        else
+            error "GREEN container is not running when it should be"
+            return 1
+        fi
     else
-        BLUE_ENABLED=true GREEN_ENABLED=true docker compose up -d websocket-blue
-        BLUE_ENABLED=true GREEN_ENABLED=true docker compose --profile green up -d websocket-green
+        if is_container_running "websocket-blue"; then
+            log "BLUE container is running and enabled in Traefik"
+        else
+            error "BLUE container is not running when it should be"
+            return 1
+        fi
     fi
     
-    # Wait for Traefik to register both services
-    log "Waiting for Traefik to register both services..."
-    sleep 10
+    # Both services are already registered in Traefik
+    log "Both services already registered in Traefik, proceeding with health check..."
+    sleep 2
     
     # Verify new environment is receiving traffic
     log "Phase 2: Verifying new environment ($new_environment) is healthy..."
@@ -160,10 +172,14 @@ switch_traefik_routing() {
     # Step 2: Disable old environment (this will drop WebSocket connections immediately)
     if [ "$old_environment" != "none" ] && [ "$old_environment" != "$new_environment" ] && [ "$old_environment" != "both" ]; then
         log "Phase 3: Disabling old environment ($old_environment) - WebSocket connections will drop immediately"
+        
+        # Simply stop the old container - no need to recreate it with different labels
         if [ "$old_environment" = "blue" ]; then
-            BLUE_ENABLED=false GREEN_ENABLED=true docker compose up -d websocket-blue
+            log "Stopping BLUE container to disable Traefik routing..."
+            docker stop websocket-blue
         else
-            GREEN_ENABLED=false BLUE_ENABLED=true docker compose --profile green up -d websocket-green
+            log "Stopping GREEN container to disable Traefik routing..."
+            docker stop websocket-green
         fi
         
         # Brief wait for Traefik to update routing
@@ -177,13 +193,15 @@ switch_traefik_routing() {
             return 0
         else
             error "Traffic switch failed, rolling back..."
-            # Emergency rollback - re-enable old environment
+            # Emergency rollback - restart old environment and stop new environment
             if [ "$old_environment" = "blue" ]; then
-                BLUE_ENABLED=true GREEN_ENABLED=false docker compose up -d websocket-blue
-                docker compose --profile green stop websocket-green
+                log "Rollback: Restarting BLUE container and stopping GREEN..."
+                docker start websocket-blue
+                docker stop websocket-green
             else
-                GREEN_ENABLED=true BLUE_ENABLED=false docker compose --profile green up -d websocket-green
-                docker compose stop websocket-blue
+                log "Rollback: Restarting GREEN container and stopping BLUE..."
+                docker start websocket-green  
+                docker stop websocket-blue
             fi
             return 1
         fi
@@ -203,9 +221,9 @@ deploy_to_environment() {
     # First, rebuild the image to ensure latest code
     log "Building latest image for $target_env environment..."
     if [ "$target_env" = "green" ]; then
-        docker compose build websocket-green
+        $DOCKER_COMPOSE_CMD build websocket-green
     else
-        docker compose build websocket-blue
+        $DOCKER_COMPOSE_CMD build websocket-blue
     fi
     
     if [ $? -ne 0 ]; then
@@ -213,12 +231,12 @@ deploy_to_environment() {
         return 1
     fi
     
-    # Start the container (disabled in Traefik initially)
-    log "Starting $container_name container (disabled in Traefik)..."
+    # Start the container (enabled in Traefik but with lower priority)
+    log "Starting $container_name container (enabled in Traefik)..."
     if [ "$target_env" = "green" ]; then
-        GREEN_ENABLED=false docker compose --profile green up -d websocket-green
+        GREEN_ENABLED=true $DOCKER_COMPOSE_CMD --profile green up -d websocket-green
     else
-        BLUE_ENABLED=false docker compose up -d websocket-blue
+        BLUE_ENABLED=true $DOCKER_COMPOSE_CMD up -d websocket-blue
     fi
     
     if [ $? -ne 0 ]; then
@@ -243,7 +261,7 @@ deploy_to_environment() {
         return 1
     fi
     
-    success "$target_env environment deployed and ready (not yet receiving traffic)"
+    success "$target_env environment deployed and ready (enabled in Traefik with lower priority)"
     return 0
 }
 
@@ -350,9 +368,9 @@ rollback() {
         if ! is_container_running "websocket-$previous_env"; then
             log "Starting previous environment container..."
             if [ "$previous_env" = "green" ]; then
-                docker compose --profile green up -d websocket-green
+                $DOCKER_COMPOSE_CMD --profile green up -d websocket-green
             else
-                docker compose up -d websocket-blue
+                $DOCKER_COMPOSE_CMD up -d websocket-blue
             fi
         fi
         
@@ -442,8 +460,8 @@ main() {
         exit 1
     fi
     
-    # Stop old environment (connections already dropped by Traefik switch)
-    stop_old_environment "$current_env"
+    # Old environment was already stopped during the traffic switch
+    log "Old environment ($current_env) was stopped during traffic switch"
     
     success "Blue-green deployment completed successfully!"
     log "Active environment: $target_env"

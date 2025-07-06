@@ -1,0 +1,25 @@
+# Dynamic Configuration for Traefik
+http:    
+    # Security headers middleware
+    security-headers:
+      headers:
+        customResponseHeaders:
+          X-Frame-Options: "SAMEORIGIN"
+          X-XSS-Protection: "1; mode=block"
+          X-Content-Type-Options: "nosniff"
+          Referrer-Policy: "no-referrer-when-downgrade"
+          Content-Security-Policy: "default-src 'self' http: data: blob: 'unsafe-inline'"
+        
+    # IP whitelist for metrics endpoint
+    metrics-whitelist:
+      ipWhiteList:
+        sourceRange:
+          - "172.20.0.0/16"  # Docker network
+          - "127.0.0.1/32"   # Localhost
+          - "::1/128"        # IPv6 localhost
+                
+    # Timeout middleware for WebSocket connections
+    websocket-timeout:
+      forwardAuth:
+        address: "http://localhost/health"
+        trustForwardHeader: true 

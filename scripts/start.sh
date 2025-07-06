@@ -65,10 +65,10 @@ start_stack() {
     
     if [ "$profile" = "logging" ]; then
         log "Starting with logging stack (ELK)..."
-        docker compose --profile logging up -d
+        docker compose -f docker/compose/docker-compose.yml --profile logging up -d
     else
         log "Starting basic stack..."
-        docker compose up -d
+        docker compose -f docker/compose/docker-compose.yml up -d
     fi
     
     if [ $? -eq 0 ]; then
@@ -135,9 +135,9 @@ show_urls() {
     echo "  • Blue-Green:       ./scripts/blue-green-deploy.sh green"
     echo
     echo "📋 Management:"
-    echo "  • View Logs:        docker compose logs -f"
-    echo "  • Stop Stack:       docker compose down"
-    echo "  • View Status:      docker compose ps"
+    echo "  • View Logs:        docker compose -f docker/compose/docker-compose.yml logs -f"
+    echo "  • Stop Stack:       docker compose -f docker/compose/docker-compose.yml down"
+    echo "  • View Status:      docker compose -f docker/compose/docker-compose.yml ps"
     echo
 }
 
@@ -160,8 +160,8 @@ run_health_checks() {
     fi
     
     # Check container status
-    local running_containers=$(docker compose ps --services --filter "status=running" | wc -l)
-    local total_containers=$(docker compose ps --services | wc -l)
+    local running_containers=$(docker compose -f docker/compose/docker-compose.yml ps --services --filter "status=running" | wc -l)
+    local total_containers=$(docker compose -f docker/compose/docker-compose.yml ps --services | wc -l)
     
     if [ "$running_containers" -eq "$total_containers" ]; then
         success "✓ All containers are running ($running_containers/$total_containers)"

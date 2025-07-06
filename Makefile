@@ -11,7 +11,7 @@ help: ## Show this help message
 # Development commands
 dev-up: ## Start development environment (blue deployment)
 	@echo "🚀 Starting development environment..."
-	docker compose up -d websocket-blue traefik prometheus grafana redis
+	docker compose -f docker/compose/docker-compose.yml up -d websocket-blue traefik prometheus grafana redis
 	@echo "✅ Development environment started!"
 	@echo "📊 Services available at:"
 	@echo "  • WebSocket Server: http://localhost"
@@ -24,23 +24,23 @@ dev-up: ## Start development environment (blue deployment)
 
 dev-down: ## Stop development environment
 	@echo "🛑 Stopping development environment..."
-	docker compose down
+	docker compose -f docker/compose/docker-compose.yml --profile green down
 	@echo "✅ Development environment stopped!"
 
 dev-build: ## Build development images
 	@echo "🔨 Building development images..."
-	docker compose build websocket-blue
+	docker compose -f docker/compose/docker-compose.yml build websocket-blue
 	@echo "✅ Development images built!"
 
 # Production commands
 prod-up: ## Start production environment (blue-green ready)
 	@echo "🚀 Starting production environment..."
-	docker compose up -d
+	docker compose -f docker/compose/docker-compose.yml up -d
 	@echo "✅ Production environment started!"
 
 prod-down: ## Stop production environment
 	@echo "🛑 Stopping production environment..."
-	docker compose down
+	docker compose -f docker/compose/docker-compose.yml --profile green down
 	@echo "✅ Production environment stopped!"
 
 # Blue-Green deployment commands
@@ -55,25 +55,25 @@ deploy-blue: ## Deploy to blue environment
 # Build and maintenance commands
 build: ## Build all Docker images
 	@echo "🔨 Building all Docker images..."
-	docker compose build
+	docker compose -f docker/compose/docker-compose.yml build
 	@echo "✅ All images built!"
 
 clean: ## Clean up Docker resources
 	@echo "🧹 Cleaning up Docker resources..."
-	docker compose down -v
+	docker compose -f docker/compose/docker-compose.yml --profile green down -v
 	docker system prune -f
 	docker volume prune -f
 	@echo "✅ Cleanup completed!"
 
 # Monitoring and logs
 logs: ## Show logs from all services
-	docker compose logs -f
+	docker compose -f docker/compose/docker-compose.yml logs -f
 
 logs-app: ## Show logs from WebSocket application only
-	docker compose logs -f websocket-blue websocket-green
+	docker compose -f docker/compose/docker-compose.yml logs -f websocket-blue websocket-green
 
 logs-traefik: ## Show logs from Traefik load balancer
-	docker compose logs -f traefik
+	docker compose -f docker/compose/docker-compose.yml logs -f traefik
 
 monitor: ## Start interactive monitoring dashboard
 	@echo "🔍 Starting monitoring dashboard..."
@@ -87,7 +87,7 @@ monitor-test: ## Test monitoring endpoints
 status: ## Show status of all services
 	@echo "📊 Service Status:"
 	@echo "=================="
-	docker compose ps
+	docker compose -f docker/compose/docker-compose.yml ps
 
 health: ## Check health of all services
 	@echo "🏥 Health Check:"
@@ -177,7 +177,7 @@ ci-test: ## Run CI-like tests locally
 	@echo "📋 2. Running unit tests..."
 	@cd app && bun test || echo "No tests configured"
 	@echo "📋 3. Testing Docker build..."
-	@docker build -t websocket-test ./app
+	@docker build -f docker/app/Dockerfile -t websocket-test ./app
 	@echo "📋 4. Testing health endpoints..."
 	@docker run -d --name test-ws -p 3002:3001 websocket-test
 	@sleep 10

@@ -1,11 +1,9 @@
-version: '3.8'
-
 services:
   # WebSocket Server - Blue deployment
   websocket-blue:
     build:
-      context: ./app
-      dockerfile: Dockerfile
+      context: ../../app
+      dockerfile: ../docker/app/Dockerfile
     container_name: websocket-blue
     environment:
       - NODE_ENV=production
@@ -16,8 +14,8 @@ services:
       - CONNECTION_TIMEOUT=300000
       - LOG_LEVEL=info
     volumes:
-      - ./app/logs:/app/logs
-      - ./app/src/public:/app/public:ro
+      - ../../app/logs:/app/logs
+      - ../../app/src/public:/app/public:ro
     networks:
       - websocket-network
     restart: unless-stopped
@@ -38,8 +36,7 @@ services:
       - "traefik.http.routers.websocket-blue.priority=100"
       # WebSocket router with highest priority
       - "traefik.http.routers.websocket-blue-ws.rule=Host(`localhost`) && PathPrefix(`/ws/`)"
-      - "traefik.http.routers.websocket-blue-ws.entrypoints=web,websecure"
-      - "traefik.http.routers.websocket-blue-ws.tls=true"
+      - "traefik.http.routers.websocket-blue-ws.entrypoints=web"
       - "traefik.http.routers.websocket-blue-ws.service=websocket-blue"
       - "traefik.http.routers.websocket-blue-ws.priority=200"
       # Health check router
@@ -49,8 +46,7 @@ services:
       - "traefik.http.routers.websocket-blue-health.priority=150"
       # Metrics router
       - "traefik.http.routers.websocket-blue-metrics.rule=Host(`localhost`) && Path(`/metrics`)"
-      - "traefik.http.routers.websocket-blue-metrics.entrypoints=web,websecure"
-      - "traefik.http.routers.websocket-blue-metrics.tls=true"
+      - "traefik.http.routers.websocket-blue-metrics.entrypoints=web"
       - "traefik.http.routers.websocket-blue-metrics.service=websocket-blue"
       - "traefik.http.routers.websocket-blue-metrics.priority=150"
       # Service definition
@@ -62,8 +58,8 @@ services:
   # WebSocket Server - Green deployment
   websocket-green:
     build:
-      context: ./app
-      dockerfile: Dockerfile
+      context: ../../app
+      dockerfile: ../docker/app/Dockerfile
     container_name: websocket-green
     environment:
       - NODE_ENV=production
@@ -74,8 +70,8 @@ services:
       - CONNECTION_TIMEOUT=300000
       - LOG_LEVEL=info
     volumes:
-      - ./app/logs:/app/logs
-      - ./app/src/public:/app/public:ro
+      - ../../app/logs:/app/logs
+      - ../../app/src/public:/app/public:ro
     networks:
       - websocket-network
     restart: unless-stopped
@@ -98,8 +94,7 @@ services:
       - "traefik.http.routers.websocket-green.priority=110"
       # WebSocket router with highest priority (higher than blue when enabled)
       - "traefik.http.routers.websocket-green-ws.rule=Host(`localhost`) && PathPrefix(`/ws/`)"
-      - "traefik.http.routers.websocket-green-ws.entrypoints=web,websecure"
-      - "traefik.http.routers.websocket-green-ws.tls=true"
+      - "traefik.http.routers.websocket-green-ws.entrypoints=web"
       - "traefik.http.routers.websocket-green-ws.service=websocket-green"
       - "traefik.http.routers.websocket-green-ws.priority=210"
       # Health check router
@@ -109,8 +104,7 @@ services:
       - "traefik.http.routers.websocket-green-health.priority=160"
       # Metrics router
       - "traefik.http.routers.websocket-green-metrics.rule=Host(`localhost`) && Path(`/metrics`)"
-      - "traefik.http.routers.websocket-green-metrics.entrypoints=web,websecure"
-      - "traefik.http.routers.websocket-green-metrics.tls=true"
+      - "traefik.http.routers.websocket-green-metrics.entrypoints=web"
       - "traefik.http.routers.websocket-green-metrics.service=websocket-green"
       - "traefik.http.routers.websocket-green-metrics.priority=160"
       # Service definition
@@ -125,12 +119,10 @@ services:
     container_name: traefik-lb
     ports:
       - "80:80"
-      - "443:443"
       - "8080:8080"
     volumes:
-      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
-      - ./traefik/dynamic.yml:/etc/traefik/dynamic.yml:ro
-      - ./traefik/acme:/etc/traefik/acme
+      - ../traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ../traefik/dynamic.yml:/etc/traefik/dynamic.yml:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
       - websocket-blue
@@ -140,8 +132,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.traefik.rule=Host(`traefik.localhost`)"
-      - "traefik.http.routers.traefik.entrypoints=websecure"
-      - "traefik.http.routers.traefik.tls=true"
+      - "traefik.http.routers.traefik.entrypoints=web"
       - "traefik.http.routers.traefik.service=api@internal"
       - "traefik.http.middlewares.traefik-auth.basicauth.users=admin:$$2y$$10$$8YgzOWTl5LN1nOxIgvzpyOOYBYZVNjWUMJjdUG4bxDyEJrZrZvSXW"
 
@@ -152,8 +143,8 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./monitoring/rules:/etc/prometheus/rules:ro
+      - ../monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../monitoring/rules:/etc/prometheus/rules:ro
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -174,8 +165,8 @@ services:
       - "3000:3000"
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin123
       - GF_USERS_ALLOW_SIGN_UP=false
@@ -186,7 +177,7 @@ services:
       - websocket-network
     restart: unless-stopped
 
-  # Redis for session management and caching
+  # Redis for session management, caching and reconnection support
   redis:
     image: redis:7-alpine
     container_name: redis
