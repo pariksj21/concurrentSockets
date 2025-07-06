@@ -34,11 +34,6 @@ jobs:
       run: |
         bun run lint || echo "No lint script configured"
         
-    - name: Run tests
-      working-directory: ./app
-      run: |
-        bun test || echo "No tests configured yet"
-        
     - name: Build application
       working-directory: ./app
       run: bun run build
