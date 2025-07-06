@@ -327,5 +327,3 @@ For issues and questions:
 3. Create an issue with detailed information
 
 ---
-
-**Built with ❤️ for production-grade WebSocket applications** 

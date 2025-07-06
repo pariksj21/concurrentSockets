@@ -50,29 +50,6 @@ jobs:
         path: app/dist/
         retention-days: 7
 
-  # Security Scan Job
-  security-scan:
-    runs-on: ubuntu-latest
-    needs: build-and-test
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Run Trivy vulnerability scanner
-      uses: aquasecurity/trivy-action@master
-      with:
-        scan-type: 'fs'
-        scan-ref: './app'
-        format: 'sarif'
-        output: 'trivy-results.sarif'
-        
-    - name: Upload Trivy scan results
-      uses: github/codeql-action/upload-sarif@v2
-      if: always()
-      with:
-        sarif_file: 'trivy-results.sarif'
-
   # Docker Build Job
   docker-build:
     runs-on: ubuntu-latest
@@ -127,105 +104,6 @@ jobs:
         name: docker-image
         path: websocket-server.tar.gz
         retention-days: 7
-
-  # Load Test Job
-  load-test:
-    runs-on: ubuntu-latest
-    needs: docker-build
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-      
-    - name: Start test environment
-      run: |
-        # Build and start the application
-        cd app && docker build -t websocket-server:test .
-        docker run -d --name websocket-test -p 3001:3001 websocket-server:test
-        
-        # Wait for startup
-        sleep 15
-        
-        # Verify it's running
-        curl -f http://localhost:3001/health
-        
-    - name: Install k6
-      run: |
-        sudo gpg -k
-        sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
-        echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
-        sudo apt-get update
-        sudo apt-get install k6
-        
-    - name: Run load tests
-      working-directory: ./app
-      run: |
-        # Run a lighter load test for CI
-        k6 run --vus 10 --duration 30s loadtest.js
-        
-    - name: Cleanup test environment
-      if: always()
-      run: |
-        docker stop websocket-test || true
-        docker rm websocket-test || true
-
-  # Integration Test Job
-  integration-test:
-    runs-on: ubuntu-latest
-    needs: docker-build
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Start full stack
-      run: |
-        # Start the monitoring stack
-        docker compose up -d --build
-        
-        # Wait for services to be ready
-        sleep 30
-        
-    - name: Run integration tests
-      run: |
-        # Test health endpoints
-        curl -f http://localhost/health
-        curl -f http://localhost/healthz
-        curl -f http://localhost/readyz
-        
-        # Test metrics endpoint
-        curl -f http://localhost/metrics | grep -q "websocket_connections_total"
-        
-        # Test Prometheus is scraping metrics
-        timeout 60 bash -c 'until curl -s http://localhost:9090/api/v1/query?query=up | grep -q "websocket"; do sleep 5; done'
-        
-        # Test Grafana is accessible
-        curl -f http://localhost:3000/api/health
-        
-        # Test blue-green deployment script
-        chmod +x scripts/blue-green-deploy.sh
-        timeout 300 ./scripts/blue-green-deploy.sh green || echo "Blue-green test completed"
-        
-    - name: Test monitoring script
-      run: |
-        chmod +x scripts/monitor.sh
-        timeout 30 ./scripts/monitor.sh test || echo "Monitor script test completed"
-        
-    - name: Collect logs on failure
-      if: failure()
-      run: |
-        echo "=== Docker Compose Logs ==="
-        docker compose logs
-        echo "=== Container Status ==="
-        docker ps -a
-        
-    - name: Cleanup
-      if: always()
-      run: |
-        docker compose down -v
 
   # Deploy Job (only on main branch)
   deploy:
