@@ -1,5 +1,5 @@
 import { ElysiaWS } from 'elysia/dist/ws'
-import { incrementConnection, decrementConnection, incrementMessage } from './metrics'
+import { incrementConnection, decrementConnection, incrementMessage, recordMessageLatency, recordConnectionDuration } from './metrics'
 import { logInfo, logError, logWarn } from './logger'
 import { 
   getConnectionState, 
@@ -17,6 +17,9 @@ export const heartbeatIntervals = new Map<string, NodeJS.Timeout>()
 
 // Store active WebSocket connections
 export const activeConnections = new Map<string, ElysiaWS>()
+
+// Store connection start times for duration tracking
+export const connectionStartTimes = new Map<string, number>()
 
 // WebSocket context interface for proper typing
 export interface WebSocketContext extends ElysiaWS {
@@ -91,10 +94,13 @@ export const handleWebSocketOpen = async (ws: WebSocketContext) => {
   const { connectionId } = ws.data.params;
   let messageCount = 0;
   let isReconnection = false;
+  
+  // Record connection start time for duration tracking
+  connectionStartTimes.set(connectionId, Date.now());
 
   try {
     // Check if this is a reconnection by looking up state in Redis
-    // This will gracefully return null if Redis is unavailable
+    // This will gracefully return null if Redis is unavailable    
     const storedState = await getConnectionState(connectionId);
     console.log('storedState', storedState);
     
@@ -174,6 +180,7 @@ export const handleWebSocketOpen = async (ws: WebSocketContext) => {
 
 export const handleWebSocketMessage = async (ws: WebSocketContext, message: any) => {
   const { connectionId } = ws.data.params;
+  const messageStartTime = Date.now();
 
   // Handle special disconnect message
   if (typeof message === 'object' && message !== null && 'disconnect' in message) {
@@ -215,13 +222,18 @@ export const handleWebSocketMessage = async (ws: WebSocketContext, message: any)
     logError('Failed to send message response', { connectionId, error: sendError });
   }
 
+  // Record message processing latency
+  const messageLatency = (Date.now() - messageStartTime) / 1000; // Convert to seconds
+  recordMessageLatency(messageLatency);
+
   // Update metrics
-  incrementMessage('message', 'processed');
+  incrementMessage();
 
   logInfo('Message processed', { 
     connectionId, 
     messageCount: currentCount,
-    messageType: typeof message
+    messageType: typeof message,
+    latencyMs: Date.now() - messageStartTime
   });
 }
 
@@ -230,6 +242,14 @@ export const handleWebSocketClose = async (ws: WebSocketContext) => {
 
   // Get final message count before cleanup
   const finalCount = connectionCounts.get(connectionId) || 0;
+  
+  // Record connection duration
+  const connectionStartTime = connectionStartTimes.get(connectionId);
+  if (connectionStartTime) {
+    const duration = (Date.now() - connectionStartTime) / 1000; // Convert to seconds
+    recordConnectionDuration(duration);
+    connectionStartTimes.delete(connectionId);
+  }
 
   // Store final state in Redis for potential reconnection
   try {
@@ -290,4 +310,5 @@ export const cleanupAllConnections = () => {
   activeConnections.clear();
   heartbeatIntervals.clear();
   connectionCounts.clear();
-} 
+  connectionStartTimes.clear();
+}

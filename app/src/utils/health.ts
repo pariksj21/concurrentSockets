@@ -1,4 +1,4 @@
-import { setConnectionCount, getRequiredMetrics, getContentType } from './metrics'
+import { setConnectionCount, getMetrics, getContentType } from './metrics'
 import { activeConnections } from './websocket'
 import { redisHealthCheck, isRedisAvailable } from './redis'
 
@@ -123,7 +123,7 @@ export const handleMetricsEndpoint = async (requestLogger: any, requestId: strin
   // Sync Prometheus gauge with actual connection count before exposing metrics
   setConnectionCount(activeConnections.size)
   
-  const metrics = await getRequiredMetrics()
+  const metrics = await getMetrics()
   
   return new Response(metrics, {
     headers: { 'Content-Type': getContentType() }

@@ -1,4 +1,4 @@
-import { register, collectDefaultMetrics, Counter, Gauge } from 'prom-client'
+import { register, collectDefaultMetrics, Counter, Gauge, Histogram } from 'prom-client'
 
 // Only collect default metrics in production (not in tests)
 const shouldCollectDefaults = process.env.NODE_ENV === 'production' || process.env.COLLECT_DEFAULT_METRICS === 'true'
@@ -32,6 +32,20 @@ export const appShutdownTime = new Gauge({
   help: 'Time taken to shutdown the application in seconds'
 })
 
+// 5. Message latency histogram (for dashboard)
+export const wsMessageLatency = new Histogram({
+  name: 'websocket_message_latency_seconds',
+  help: 'WebSocket message processing latency in seconds',
+  buckets: [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
+})
+
+// 6. Connection duration histogram (for dashboard)
+export const wsConnectionDuration = new Histogram({
+  name: 'websocket_connection_duration_seconds',
+  help: 'WebSocket connection duration in seconds',
+  buckets: [1, 5, 10, 30, 60, 300, 600, 1800, 3600, 7200, 14400, 86400]
+})
+
 // Metrics utility functions
 export const incrementConnection = () => wsConnections.inc()
 export const decrementConnection = () => wsConnections.dec()
@@ -42,6 +56,10 @@ export const incrementMessage = () => wsMessages.inc()
 export const incrementError = () => wsErrors.inc()
 
 export const recordShutdownTime = (duration: number) => appShutdownTime.set(duration)
+
+// New histogram utility functions
+export const recordMessageLatency = (durationSeconds: number) => wsMessageLatency.observe(durationSeconds)
+export const recordConnectionDuration = (durationSeconds: number) => wsConnectionDuration.observe(durationSeconds)
 
 // Get all metrics (including default system metrics in production)
 export const getMetrics = async () => register.metrics()
