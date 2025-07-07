@@ -16,35 +16,34 @@ const wsConnectionRate = new Rate('ws_connection_success_rate');
 
 export const options = {
     scenarios: {
-        // Ramp up scenario
+        // Ramp test: Gradual increase to 1000 users
         ramp_up: {
             executor: 'ramping-vus',
             startVUs: 0,
             stages: [
-                { duration: '5s', target: 500 },
-                { duration: '5s', target: 500 },
-                { duration: '5s', target: 500 },
-                { duration: '5s', target: 1000 },
-                { duration: '5s', target: 0 },
+                { duration: '2m', target: 500 },    // Ramp up to 500 in 2 minutes
+                { duration: '2m', target: 1000 },   // Ramp up to 1000 in next 2 minutes
+                { duration: '1m', target: 1000 },   // Stay at 1000 for 1 minute
+                { duration: '1m', target: 0 },      // Ramp down to 0 in 1 minute
             ],
         },
-        // Stress test scenario
+        // Stress test: Sustained 2000 users for 10 minutes
         stress_test: {
             executor: 'constant-vus',
-            vus: 1000,
-            duration: '20s',
-            startTime: '20s',
+            vus: 2000,
+            duration: '10m',
+            startTime: '7m',  // Start after ramp test (6m) + 1m buffer
         },
-        // Spike test scenario
+        // Spike test: Sudden spike to 5000 users
         spike_test: {
             executor: 'ramping-vus',
             startVUs: 0,
             stages: [
-                { duration: '30s', target: 2000 },
-                { duration: '1m', target: 2000 },
-                { duration: '30s', target: 0 },
+                { duration: '30s', target: 5000 },  // Quick ramp up to 5000
+                { duration: '1m', target: 5000 },   // Hold at 5000 for 1 minute
+                { duration: '30s', target: 0 },     // Quick ramp down
             ],
-            startTime: '16m',
+            startTime: '18m',  // Start after stress test (17m) + 1m buffer
         }
     },
     thresholds: {
