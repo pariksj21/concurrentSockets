@@ -50,7 +50,7 @@ const app = new Elysia()
     const result = handleReadinessCheck(requestLogger, requestId)
     return result.isError ? result.response : result.response
   })
-  // Legacy health check endpoint
+  // Halth check endpoint
   .get('/health', async ({ requestLogger, requestId }) => {
     return await handleHealthCheck(requestLogger, requestId)
   })

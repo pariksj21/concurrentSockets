@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test'
-import { generateRequestId, createRequestLogger, logInfo, logError } from './logger'
+import { generateRequestId, createRequestLogger, logInfo, logError } from '../utils/logger'
 
 describe('Logger Utils', () => {
   it('should generate unique request IDs', () => {

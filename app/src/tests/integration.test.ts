@@ -14,10 +14,10 @@ describe('WebSocket Server Integration Tests', () => {
   it('should have valid module imports', async () => {
     // Test that all modules can be imported without errors
     const modules = [
-      './utils/logger',
-      './utils/websocket',
-      './utils/health',
-      './utils/shutdown'
+      '../utils/logger',
+      '../utils/websocket',
+      '../utils/health',
+      '../utils/shutdown'
     ]
     
     for (const modulePath of modules) {
@@ -32,7 +32,7 @@ describe('WebSocket Server Integration Tests', () => {
     
     // Test metrics module separately with error handling for Bun compatibility
     try {
-      const metricsModule = await import('./utils/metrics')
+      const metricsModule = await import('../utils/metrics')
       expect(metricsModule).toBeDefined()
       console.log('Metrics module imported successfully')
     } catch (error) {
@@ -51,7 +51,7 @@ describe('WebSocket Server Integration Tests', () => {
   it('should handle application startup sequence', async () => {
     // Test that the application can be started without errors
     try {
-      const { startupTime } = await import('./utils/health')
+      const { startupTime } = await import('../utils/health')
       
       expect(startupTime).toBeDefined()
       expect(typeof startupTime).toBe('number')
@@ -71,7 +71,7 @@ describe('WebSocket Server Integration Tests', () => {
   
   it('should validate logger functionality', async () => {
     try {
-      const { generateRequestId, createRequestLogger } = await import('./utils/logger')
+      const { generateRequestId, createRequestLogger } = await import('../utils/logger')
       
       const requestId = generateRequestId()
       const logger = createRequestLogger(requestId)
@@ -95,7 +95,7 @@ describe('WebSocket Server Integration Tests', () => {
   
   it('should validate health endpoints structure', async () => {
     try {
-      const healthModule = await import('./utils/health')
+      const healthModule = await import('../utils/health')
       
       expect(typeof healthModule.handleLivenessCheck).toBe('function')
       expect(typeof healthModule.handleReadinessCheck).toBe('function')

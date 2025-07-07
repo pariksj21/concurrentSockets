@@ -18,10 +18,10 @@ describe('WebSocket Server', () => {
 describe('Application Structure', () => {
   it('should have required utility modules', async () => {
     // Test that all utility modules can be imported
-    const loggerModule = await import('./utils/logger')
-    const websocketModule = await import('./utils/websocket')
-    const healthModule = await import('./utils/health')
-    const shutdownModule = await import('./utils/shutdown')
+    const loggerModule = await import('../utils/logger')
+    const websocketModule = await import('../utils/websocket')
+    const healthModule = await import('../utils/health')
+    const shutdownModule = await import('../utils/shutdown')
     
     expect(loggerModule).toBeDefined()
     expect(websocketModule).toBeDefined()
@@ -30,7 +30,7 @@ describe('Application Structure', () => {
     
     // Test metrics module with Bun compatibility handling
     try {
-      const metricsModule = await import('./utils/metrics')
+      const metricsModule = await import('../utils/metrics')
       expect(metricsModule).toBeDefined()
       console.log('Metrics module imported successfully')
     } catch (error) {
