@@ -59,17 +59,8 @@ create_directories() {
 
 # Function to start the stack
 start_stack() {
-    local profile=${1:-""}
-    
     log "Starting the WebSocket server stack..."
-    
-    if [ "$profile" = "logging" ]; then
-        log "Starting with logging stack (ELK)..."
-        docker compose -f docker/compose/docker-compose.yml --profile logging up -d
-    else
-        log "Starting basic stack..."
-        docker compose -f docker/compose/docker-compose.yml up -d
-    fi
+    docker compose -f docker/compose/docker-compose.yml up -d
     
     if [ $? -eq 0 ]; then
         success "Stack started successfully"
@@ -172,8 +163,6 @@ run_health_checks() {
 
 # Main function
 main() {
-    local profile=${1:-""}
-    
     echo "🚀 Starting Production WebSocket Server"
     echo "========================================"
     
@@ -185,7 +174,7 @@ main() {
     create_directories
     
     # Start services
-    start_stack "$profile"
+    start_stack
     
     # Wait for readiness
     wait_for_services
@@ -201,14 +190,10 @@ main() {
 
 # Handle script arguments
 case "${1:-}" in
-    "logging")
-        main "logging"
-        ;;
     "help"|"-h"|"--help")
-        echo "Usage: $0 [logging]"
+        echo "Usage: $0"
         echo
         echo "Options:"
-        echo "  logging    Start with ELK logging stack"
         echo "  help       Show this help message"
         exit 0
         ;;
