@@ -37,6 +37,17 @@ make start
 ```
 This will build and start the development environment with all necessary services (WebSocket server, Traefik, Prometheus, Grafana, Redis).
 
+## 🖥️ Test Interface
+
+![WebSocket Test Interface](docs/applicationUI.png)
+
+The test interface provides a comprehensive dashboard for:
+- Real-time connection monitoring
+- Connection controls with individual connection IDs
+- Message tracking and statistics
+- Direct access to monitoring tools (Grafana, Prometheus, Traefik)
+- Health check and metrics visualization
+
 ### Load Testing
 ```bash
 make test
